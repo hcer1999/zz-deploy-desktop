@@ -10,8 +10,8 @@ use crate::secure::CredentialStore;
 
 /// 全局会话：持有 HTTP 客户端、凭据存储，以及"当前是否已登录"的依据。
 ///
-/// Cookie 只活在这里的内存中，**不落盘**（spec §7）。应用重启后靠钥匙串里的
-/// 密码静默续登，用户无感。
+/// Cookie 只活在这里的内存中，**不落盘**（spec §7）。应用重启后靠应用数据目录里
+/// 保存的凭据静默续登，用户无感。
 pub struct SessionState {
     client: RwLock<Arc<HttpClient>>,
     pub credentials: Box<dyn CredentialStore>,

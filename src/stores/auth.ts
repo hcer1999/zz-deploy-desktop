@@ -6,7 +6,8 @@ export const useAuthStore = defineStore("auth", () => {
   const loggedIn = ref(false);
   const username = ref("");
   const baseUrl = ref("https://itsm.zhizhengroup.com");
-  const credentialBackend = ref<"keyring" | "encryptedFile">("keyring");
+  const credentialBackend = ref<"encryptedFile">("encryptedFile");
+  const credentialPath = ref("");
   const loading = ref(false);
   const error = ref("");
 
@@ -17,6 +18,7 @@ export const useAuthStore = defineStore("auth", () => {
     username.value = s.username;
     baseUrl.value = s.baseUrl;
     credentialBackend.value = s.credentialBackend;
+    credentialPath.value = s.credentialPath;
   }
 
   async function login(user: string, password: string, remember: boolean): Promise<boolean> {
@@ -56,6 +58,7 @@ export const useAuthStore = defineStore("auth", () => {
     username,
     baseUrl,
     credentialBackend,
+    credentialPath,
     loading,
     error,
     refresh,

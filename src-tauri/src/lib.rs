@@ -25,7 +25,7 @@ pub fn run() {
 
             let handle = app.handle().clone();
             let cfg = commands::config::load(&handle)?;
-            let credentials = secure::detect_store(&app_data_dir);
+            let credentials = secure::create_store(&app_data_dir);
             let state = SessionState::new(&cfg.base_url, credentials);
 
             // 续登失败要通过事件告知前端；这里建广播通道并由后台任务转发
@@ -47,7 +47,7 @@ pub fn run() {
                 }
             });
 
-            // 启动时尝试用钥匙串里的凭据静默续登；无论成败都通知前端可以刷新状态了
+            // 启动时尝试用已保存的凭据静默续登；无论成败都通知前端可以刷新状态了
             let login_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 let state = login_handle.state::<SessionState>();

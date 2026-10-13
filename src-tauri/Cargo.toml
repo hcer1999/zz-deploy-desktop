@@ -34,17 +34,6 @@ futures-util = "0.3"
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 
-# keyring 必须分平台声明：若把 sync-secret-service 写进通用依赖，
-# macOS 构建也会被拉入 D-Bus 相关依赖。
-[target.'cfg(target_os = "macos")'.dependencies]
-keyring = { version = "3", features = ["apple-native"] }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-keyring = { version = "3", features = ["windows-native"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-keyring = { version = "3", features = ["sync-secret-service"] }
-
 [dev-dependencies]
 wiremock = "0.6"
 tempfile = "3"

@@ -4,7 +4,10 @@ export interface AuthStatus {
   loggedIn: boolean;
   username: string;
   baseUrl: string;
-  credentialBackend: "keyring" | "encryptedFile";
+  /** 恒为 "encryptedFile"：凭据存在应用数据目录的加密文件里，不用系统钥匙串 */
+  credentialBackend: "encryptedFile";
+  /** 凭据文件的实际路径，设置页会显示 */
+  credentialPath: string;
 }
 
 export interface LoginResult {

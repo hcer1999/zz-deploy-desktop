@@ -74,8 +74,7 @@ async function onForget(): Promise<void> {
   }
 }
 
-const backendLabel = (): string =>
-  auth.credentialBackend === "keyring" ? "系统钥匙串" : "加密文件";
+const backendLabel = (): string => "加密文件（应用数据目录）";
 
 const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: "⌘/Ctrl + N", action: "新建部署" },
@@ -154,13 +153,18 @@ async function doClearLogs(): Promise<void> {
         <span class="text-text-muted">存储方式</span>
         <span>{{ backendLabel() }}</span>
       </div>
+      <div class="space-y-1 text-xs py-1">
+        <span class="text-text-muted">存储位置</span>
+        <p class="font-mono text-[11px] break-all text-text-muted">
+          {{ auth.credentialPath || "—" }}
+        </p>
+      </div>
 
-      <p
-        v-if="auth.credentialBackend === 'encryptedFile'"
-        class="text-xs text-warning leading-relaxed p-3 rounded-md bg-surface-2"
-      >
-        本机未检测到可用的系统钥匙串，密码以加密文件形式保存在应用数据目录。
-        该文件的密钥与密文同机存放，只能防止明文外泄，无法防御能在本机读取文件的攻击者。
+      <p class="text-xs text-warning leading-relaxed p-3 rounded-md bg-surface-2">
+        凭据以 AES-256-GCM 加密后存在应用数据目录，<strong>不写入系统钥匙串</strong>——
+        未签名应用读写钥匙串会每次启动都弹授权框，体验上等于每次都要重输密码。
+        密钥与密文同机存放，只能防止明文外泄（文件被拷走、被随手打开都看不到密码），
+        无法防御已经能在本机读取文件的攻击者。
       </p>
 
       <div class="flex items-center gap-2">

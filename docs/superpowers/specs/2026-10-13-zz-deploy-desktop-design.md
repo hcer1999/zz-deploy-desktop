@@ -32,7 +32,7 @@
 | 3 | 数据接入 | 保持现状：Commit 走 JSON 接口，其余解析 HTML。不探测新接口 |
 | 4 | 架构分层 | Rust 做能力层（网络/系统），TS 做业务层 + 解析 + UI |
 | 5 | 前端栈 | Vue 3 + Vite + TypeScript + Pinia + Tailwind CSS + shadcn-vue |
-| 6 | 登录态 | 存 cookie + 账号密码；密码进系统钥匙串；支持自动续登 |
+| 6 | 登录态 | 存 cookie + 账号密码；密码存应用数据目录的加密文件（**不用系统钥匙串**，见 §7）；支持自动续登 |
 | 7 | 窗口模型 | 单窗口 + 顶部标签栏，不做多窗口 |
 | 8 | 视觉方向 | 以「深色 SaaS」为主视觉（见 §5），吸收「浅色工程工具」的密度与克制；深/浅两个模式都交付 |
 | 9 | 代码组织 | 独立新仓库，不改动现有插件仓库 |
@@ -55,7 +55,7 @@
 │  │  Rust 能力层（无业务语义）                               │  │
 │  │   net    reqwest + Cookie Jar + CSRF + 302 语义 + 续登   │  │
 │  │   ws     tokio-tungstenite（带 Cookie 头握手）           │  │
-│  │   secure keyring（系统钥匙串）                           │  │
+│  │   secure 凭据加密文件（应用数据目录，不用钥匙串）        │  │
 │  │   store  config / favorites / 日志索引                   │  │
 │  │   shell  托盘 / 通知 / 单实例 / 自启                     │  │
 │  └─────────────────────────────────────────────────────────┘  │
@@ -74,7 +74,7 @@ Rust 不知道「项目」「分支」「部署」是什么业务概念，只提
 | 应用框架 | Tauri 2 |
 | HTTP 客户端 | `reqwest`（`cookies` feature，内置 Cookie Jar） |
 | WebSocket | `tokio-tungstenite` |
-| 钥匙串 | `keyring` crate（v3） |
+| 凭据存储 | `aes-gcm` 加密文件（应用数据目录），**不用** `keyring` 系统钥匙串 |
 | 配置与收藏持久化 | `tauri-plugin-store` |
 | 通知 / 对话框 / 单实例 / 自启 | `tauri-plugin-notification` / `-dialog` / `-single-instance` / `-autostart` |
 | 托盘 | Tauri 2 内置 `tauri::tray::TrayIconBuilder` |
@@ -122,7 +122,7 @@ struct HttpResult {
    > 表现为点「确认提交部署」直接报「cookie 中缺少 csrftoken，请重新登录」。
    > 复现与验证工具：`cargo run --example probe_cookies`。
 3. **302 语义前置判定**：`302` 且 `Location` 含 `/login/` 判定为**会话过期**，而非操作成功。
-4. **自动续登**：会话过期且钥匙串中有账号密码时，静默重新登录，然后**重放原请求一次**，返回真实结果。重放仅允许一次，避免死循环。
+4. **自动续登**：会话过期且已保存账号密码时，静默重新登录，然后**重放原请求一次**，返回真实结果。重放仅允许一次，避免死循环。
 
 > **这一层顺带修掉了现有插件的一个潜在 bug。** 插件的 `submitDeploy` 判定是 `return resp.status === 302`（`src/api/deploy.ts:61`）。当 session 过期时服务端同样返回 302，只是 `Location` 指向 `/login/` —— 插件会据此认为"部署已提交"并提示成功，而实际什么都没发生。统一拦截层消除了这个歧义。
 >
@@ -132,10 +132,10 @@ struct HttpResult {
 
 ```rust
 // 认证
-auth_status()                                   -> { logged_in, username, base_url }
+auth_status()                                   -> { logged_in, username, base_url, credential_backend, credential_path }
 auth_login(base_url, username, password)        -> { ok, message }
 auth_logout()
-auth_save_credentials(username, password)       // 写系统钥匙串
+auth_save_credentials(username, password)       // 写应用数据目录下的加密文件
 auth_forget_credentials()
 
 // 配置与数据
@@ -219,7 +219,7 @@ TS:    invoke http_request(GET, "/deployment/deploy/task/", {page, search})
 Rust:  带 Cookie 请求
        └─ 302 且 Location 含 /login/ ？
             ├─ 否 → 返回 { status: 302, location }
-            └─ 是 → 钥匙串取密码 → 重新登录 → 重放原请求 → 返回真实结果
+            └─ 是 → 取已保存凭据 → 重新登录 → 重放原请求 → 返回真实结果
                      └─ 重登失败 → emit auth://expired
 TS:    status=302 且 location 不指向 login → 判定操作成功
        前端收到 auth://expired → 弹出重新登录对话框
@@ -384,7 +384,7 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 | 分组 | 项 |
 |---|---|
 | 服务 | ITSM 地址（只读展示 + 修改）、当前登录用户、退出登录 |
-| 凭据 | 是否记住密码（写/清钥匙串）、清除已保存凭据 |
+| 凭据 | 存储方式与文件位置（只读展示）、清除已保存凭据 |
 | 外观 | 主题（跟随系统 / 深色 / 浅色） |
 | 行为 | 关闭窗口行为（最小化到托盘 / 退出）、启动时自动运行、轮询间隔、构建完成通知触发条件 |
 | 日志留存 | 保留天数、最大条数、占用空间、清空全部 |
@@ -457,7 +457,7 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 | 数据 | 位置 | 方式 | 是否落盘 |
 |---|---|---|---|
 | baseUrl / 主题 / 保留策略 / 关闭行为 / 轮询间隔 | `config.json` | `tauri-plugin-store` | 是 |
-| 账号密码 | 系统钥匙串 | `keyring` crate | 是（钥匙串内） |
+| 账号密码 | `<appDataDir>/credentials.bin` | AES-256-GCM，密钥同目录 `credentials.key`（0600） | 是（加密） |
 | Cookie / session | 仅 Rust 内存 | reqwest Cookie Jar | **否** |
 | 收藏列表 | `favorites.json` | `tauri-plugin-store` | 是 |
 | 日志正文 | `logs/<type>/<taskId>.log` | 文件系统 | 是 |
@@ -466,8 +466,10 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 
 **两处相对插件的安全改进：**
 
-1. **Cookie 不再落盘**。插件把 cookie 明文存在 VSCode `globalState` 里；本客户端 cookie 只存在于内存，重启后靠钥匙串中的密码静默续登，用户无感。
-2. **密码进系统钥匙串**，不再是明文。
+1. **Cookie 不再落盘**。插件把 cookie 明文存在 VSCode `globalState` 里；本客户端 cookie 只存在于内存，重启后靠已保存的凭据静默续登，用户无感。
+2. **密码加密落盘，不再是明文**（插件把账号密码明文写进 `globalState`）。
+
+**为什么不用系统钥匙串（`keyring` crate）**：早期版本优先写钥匙串，实测在未签名/每次构建签名都变的情况下，macOS 无法把 ACL 与已有条目匹配，**每次启动都弹授权框**，等于每次都要输密码。故改为只用加密文件。代价是密钥与密文同机存放，只能防止明文外泄，无法抵御能读本机文件系统的攻击者——设置页会明示这一点。
 
 `Favorite` 数据结构与插件保持一致：
 
@@ -528,7 +530,7 @@ interface Favorite {
 | 阶段 | 内容 | 里程碑意义 |
 |---|---|---|
 | **P0** | 脚手架：Tauri 2 + Vue 3 + Tailwind + shadcn-vue；自定义标题栏（含三端分叉）；设计 token；深浅主题 | 空壳可运行 |
-| **P1** | 登录 + 设置页 + 钥匙串 + Rust 网络层（含自动续登） | 能登录并维持会话 |
+| **P1** | 登录 + 设置页 + 凭据加密存储 + Rust 网络层（含自动续登） | 能登录并维持会话 |
 | **P2** | 新建部署向导 | 能提交部署 |
 | **P3** | 任务列表（分页 / 搜索 / 上线 / 回滚 / 删除）+ 轮询 | 核心闭环打通 |
 | **P4** | 构建日志（Rust WS + 日志标签页 + ANSI + 进度行原地更新） | 功能对齐插件 |
@@ -559,7 +561,7 @@ P0–P5 是「能替代插件」，P6–P7 是「成为更好的客户端」。
 |---|---|---|
 | ITSM HTML 改版 | 解析全部失效 | fixture 快照单测，改版当天报红并定位到具体列 |
 | **两份 parser 拷贝漂移** | 插件端与桌面端行为不一致 | 两端使用**同一份 fixture 快照**与同一组断言，任一端行为变化都会暴露。（可选后续：在插件仓库 README 加一行指向本仓库的注记） |
-| Linux 无 Secret Service | 无法保存密码 | 探测降级：改用加密文件存储，并在设置页明确提示「本机未启用系统钥匙串，凭据以加密文件存储」 |
+| 加密文件被本机其他进程读取 | 凭据泄露 | 目录 0700、文件 0600；设置页明示「密钥与密文同机存放」这一安全等级。若要更高等级，需引入系统级密钥库或用户主密码（见 §11 范围边界） |
 | 三端 Webview 差异（WKWebView / WebView2 / WebKitGTK） | 样式或 API 行为不一致 | 每个阶段末在三端各跑一遍；避免冷门 CSS 特性 |
 | 托盘 / 通知能力三端不一致 | 功能打折 | 运行时能力探测 + 优雅降级（例如不支持托盘角标则省略该提示） |
 | 302 语义歧义（会话过期 vs 操作成功） | 误报成功，实际未执行 | 已在 §2.1 统一拦截层消除 |

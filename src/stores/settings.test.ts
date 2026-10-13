@@ -33,7 +33,8 @@ describe("settings store", () => {
       loggedIn: true,
       username: "zhangsan",
       baseUrl: CONFIG.baseUrl,
-      credentialBackend: "keyring",
+      credentialBackend: "encryptedFile",
+      credentialPath: "/tmp/appdata/credentials.bin",
     });
   });
 

@@ -7,23 +7,24 @@
 //! 会访问真实内网服务并消耗一次登录，因此标记 ignore，手动运行：
 //!   cargo test --test relogin_e2e -- --ignored --nocapture
 //!
-//! 前置条件：先在应用里登录并勾选「记住密码」，让凭据进入系统钥匙串。
+//! 前置条件：先在应用里登录并勾选「记住密码」，让凭据落到应用数据目录
+//! （`~/Library/Application Support/com.zhizhengroup.deploy/credentials.bin`）。
+//! 可用 `ZZ_DEPLOY_APP_DATA_DIR` 指向别处的应用数据目录。
 
 use zz_deploy_desktop_lib::commands::config::DEFAULT_BASE_URL;
 use zz_deploy_desktop_lib::net::redirect::is_login_redirect;
 use zz_deploy_desktop_lib::net::relogin::Method;
-use zz_deploy_desktop_lib::secure::detect_store;
+use zz_deploy_desktop_lib::secure::store_from_app_data_dir;
 use zz_deploy_desktop_lib::session::SessionState;
 
 #[tokio::test]
 #[ignore = "会访问真实 ITSM 服务并消耗一次登录，需手动运行"]
 async fn session_expiry_triggers_silent_relogin() {
-    // 用临时目录：只关心钥匙串分支，加密文件分支不参与
-    let scratch = std::env::temp_dir().join("zz-deploy-relogin-e2e");
-    let credentials = detect_store(&scratch);
+    // 读应用数据目录里已保存的凭据（不再有钥匙串分支）
+    let credentials = store_from_app_data_dir().expect("定位应用数据目录失败");
 
     let Some((user, pass)) = credentials.load().expect("读取凭据失败") else {
-        panic!("钥匙串里没有凭据：请先在应用里登录并勾选「记住密码」");
+        panic!("没有已保存的凭据：请先在应用里登录并勾选「记住密码」");
     };
     println!("凭据读取成功，用户名 = {user}");
 

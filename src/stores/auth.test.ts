@@ -16,7 +16,8 @@ const STATUS: authApi.AuthStatus = {
   loggedIn: true,
   username: "zhangsan",
   baseUrl: "https://itsm.zhizhengroup.com",
-  credentialBackend: "keyring",
+  credentialBackend: "encryptedFile",
+  credentialPath: "/Users/me/Library/Application Support/com.zhizhengroup.deploy/credentials.bin",
 };
 
 describe("auth store", () => {
@@ -31,7 +32,8 @@ describe("auth store", () => {
     await s.refresh();
     expect(s.loggedIn).toBe(true);
     expect(s.username).toBe("zhangsan");
-    expect(s.credentialBackend).toBe("keyring");
+    expect(s.credentialBackend).toBe("encryptedFile");
+    expect(s.credentialPath).toContain("com.zhizhengroup.deploy");
   });
 
   it("登录成功写入状态", async () => {

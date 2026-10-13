@@ -91,7 +91,8 @@ async function onSaveBaseUrl(): Promise<void> {
         </Button>
 
         <p class="text-[11px] text-text-muted leading-relaxed">
-          勾选「记住密码」后密码会存入系统钥匙串，用于会话过期时自动续登。
+          勾选「记住密码」后，密码会加密保存在本机应用数据目录（不写系统钥匙串），
+          用于会话过期时自动重登。
         </p>
       </div>
     </div>

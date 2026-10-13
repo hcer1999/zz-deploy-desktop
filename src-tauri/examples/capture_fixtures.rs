@@ -1,6 +1,6 @@
 //! 从真实 ITSM 抓取 HTML 快照，供 parser 的 fixture 快照测试使用。
 //!
-//! 运行（需内网/VPN，且钥匙串里已保存凭据）：
+//! 运行（需内网/VPN，且应用里已保存凭据）：
 //!   cargo run --example capture_fixtures
 //!
 //! 产出写入 ../src/api/__fixtures__/。这些文件会提交进仓库——
@@ -10,7 +10,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use zz_deploy_desktop_lib::net::client::HttpClient;
-use zz_deploy_desktop_lib::secure::detect_store;
+use zz_deploy_desktop_lib::secure::store_from_app_data_dir;
 
 fn out_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -81,10 +81,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     std::fs::create_dir_all(&dir)?;
     println!("产出目录：{}\n", dir.display());
 
-    let credentials = detect_store(&std::env::temp_dir().join("zz-deploy-capture"));
+    // 凭据存在应用数据目录（不再走系统钥匙串）
+    let credentials = store_from_app_data_dir()?;
     let (user, pass) = credentials
         .load()?
-        .ok_or("钥匙串里没有凭据：请先在应用里登录并勾选「记住密码」")?;
+        .ok_or("没有已保存的凭据：请先在应用里登录并勾选「记住密码」")?;
 
     let base_url = std::env::var("ZZ_ITSM_BASE_URL")
         .unwrap_or_else(|_| "https://itsm.zhizhengroup.com".to_string());

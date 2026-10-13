@@ -5,7 +5,6 @@ use crate::commands::config;
 use crate::error::AppError;
 use crate::net::client::HttpClient;
 use crate::net::redirect::is_login_redirect;
-use crate::secure::Backend;
 use crate::session::SessionState;
 
 #[derive(Debug, Clone, Serialize)]
@@ -14,7 +13,10 @@ pub struct AuthStatus {
     pub logged_in: bool,
     pub username: String,
     pub base_url: String,
-    pub credential_backend: Backend,
+    /// 恒为 "encryptedFile"：不再使用系统钥匙串（见 secure.rs 文件头）
+    pub credential_backend: String,
+    /// 凭据文件的实际路径，设置页展示
+    pub credential_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -85,7 +87,8 @@ pub async fn auth_status<R: Runtime>(
         logged_in: session.is_logged_in().await,
         username: cfg.username,
         base_url: cfg.base_url,
-        credential_backend: session.credentials.backend(),
+        credential_backend: session.credentials.backend().to_string(),
+        credential_path: session.credentials.location(),
     })
 }
 
@@ -173,7 +176,7 @@ pub async fn set_base_url<R: Runtime>(
     Ok(())
 }
 
-/// 应用启动时若钥匙串里有凭据，静默续登一次。
+/// 应用启动时若已保存凭据，静默续登一次。
 /// 失败是正常情况（没存过凭据、密码已改），返回 false 即可，不报错。
 pub async fn try_silent_login<R: Runtime>(
     app: &AppHandle<R>,
