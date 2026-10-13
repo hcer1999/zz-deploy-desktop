@@ -1,4 +1,11 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/*
+ ---break---
+ */
 @import "tailwindcss";
+@import "tw-animate-css";
 
 /*
  * 主题切换策略：Tailwind 的 class 变体。
@@ -7,13 +14,13 @@
  */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/*
- * 原始 token 使用 --deploy- 前缀，与 shadcn-vue 注入的变量（--background 等）隔开，
- * 避免命名冲突，也避免在 @theme inline 里写出 var() 自引用。
- *
- * 默认值 = 浅色模式：纯白面 + 中性灰 + 单一靛蓝强调
- * （对应 mockup style-b-light-engineering.png）
+/* ============================================================
+ * 第一层：原始调色板（--deploy-*）—— 全项目唯一的颜色真值来源
+ * ============================================================
+ * 浅色：纯白面 + 中性灰 + 单一靛蓝强调
+ *      对应 mockup style-b-light-engineering.png
  */
+
 :root {
   --deploy-bg: oklch(0.98 0.002 260);
   --deploy-surface: oklch(1 0 0);
@@ -29,11 +36,14 @@
 }
 
 /*
- * 深色模式：近黑底 + 靛紫强调
- * （对应 mockup style-a-dark-saas.png，spec §5 指定的主视觉）
+ * 深色：近黑底 + 靛紫强调
+ *       对应 mockup style-a-dark-saas.png，spec §5 指定的主视觉
  *
- * 该规则未包裹在 @layer 中，属于无层级样式，优先级高于 Tailwind 的
- * @layer theme 里生成的 :root 变量，因此能可靠覆盖。
+ * 只覆盖 --deploy-* 这一层即可：下面所有 shadcn 语义 token 都是对它的引用，
+ * CSS 变量在使用处才求值，因此会一并跟随，无需为深色再写一遍。
+ *
+ * 该规则未包裹在 @layer 中，属无层级样式，优先级高于 Tailwind 生成的
+ * @layer theme，因此能可靠覆盖。
  */
 .dark {
   --deploy-bg: oklch(0.16 0.012 265);
@@ -49,23 +59,78 @@
   --deploy-danger: oklch(0.68 0.19 25);
 }
 
-/* 把原始 token 暴露给 Tailwind，生成 bg-bg / text-text / border-border 等工具类 */
+/* ============================================================
+ * 第二层：shadcn-vue 的语义 token —— 全部指向原始调色板
+ * ============================================================
+ * 命名沿用 shadcn 约定（--primary / --muted / --accent …），
+ * 这样 `shadcn-vue add` 生成的组件无需改动即可吃上我们的配色。
+ */
+
+:root {
+  --radius: 0.5rem;
+
+  --background: var(--deploy-bg);
+  --foreground: var(--deploy-text);
+
+  --card: var(--deploy-surface);
+  --card-foreground: var(--deploy-text);
+  --popover: var(--deploy-surface);
+  --popover-foreground: var(--deploy-text);
+
+  --primary: var(--deploy-accent);
+  --primary-foreground: var(--deploy-accent-fg);
+
+  --secondary: var(--deploy-surface-2);
+  --secondary-foreground: var(--deploy-text);
+
+  --muted: var(--deploy-surface-2);
+  --muted-foreground: var(--deploy-text-muted);
+
+  /* shadcn 用 accent 表示"悬停/选中底"，保持它是中性面而不是品牌色 */
+  --accent: var(--deploy-surface-2);
+  --accent-foreground: var(--deploy-text);
+
+  --destructive: var(--deploy-danger);
+
+  --border: var(--deploy-border);
+  --input: var(--deploy-border);
+  --ring: var(--deploy-accent);
+}
+
+/*
+ * 把 token 暴露给 Tailwind，生成 bg-background / text-foreground / border-border 等工具类。
+ * inline 表示生成 `var(...)` 引用而非把值内联，这是深色模式能跟随的关键。
+ */
 @theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* 本项目额外语义别名：让业务代码能直接写 bg-surface / text-success 这类意图明确的类名 */
   --color-bg: var(--deploy-bg);
   --color-surface: var(--deploy-surface);
   --color-surface-2: var(--deploy-surface-2);
-  --color-border: var(--deploy-border);
   --color-text: var(--deploy-text);
   --color-text-muted: var(--deploy-text-muted);
-  --color-accent: var(--deploy-accent);
-  --color-accent-fg: var(--deploy-accent-fg);
   --color-success: var(--deploy-success);
   --color-warning: var(--deploy-warning);
   --color-danger: var(--deploy-danger);
-
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  --font-heading: var(--font-sans);
 }
 
 html,
@@ -76,11 +141,18 @@ body,
 
 body {
   margin: 0;
-  background: var(--deploy-bg);
-  color: var(--deploy-text);
   font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   /* 桌面应用不需要整页滚动，滚动交给内容区 */
   overflow: hidden;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
