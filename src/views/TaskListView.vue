@@ -5,6 +5,7 @@ import { toUserMessage } from "@/api/http";
 import type { DeployTask } from "@/api/parser";
 import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
+import { setOpenLog } from "@/stores/tabPayload";
 import { useSettingsStore } from "@/stores/settings";
 import StatusBadge from "@/components/common/StatusBadge.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
@@ -58,6 +59,29 @@ const lastRefreshText = computed(() =>
 );
 
 const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "Docker"));
+
+// ---------- 构建日志标签 ----------
+
+/**
+ * 每个 taskId 一个日志标签；已存在则聚焦（tabs.open 的 log 分支按 taskId 去重）。
+ *
+ * 参数经 tabPayload 传给 LogView：LogView 在 onMounted 时取一次，
+ * 之后靠 session_id 收事件，不参与响应式渲染。
+ */
+function openLogTab(t: DeployTask): void {
+  const id = tabs.open({
+    kind: "log",
+    taskId: t.taskId,
+    deployType: tasks.deployType,
+    projectName: t.projectName,
+  });
+  setOpenLog(id, {
+    taskId: t.taskId,
+    deployType: tasks.deployType,
+    projectName: t.projectName,
+    envName: t.envName,
+  });
+}
 
 // ---------- 行内操作 ----------
 
@@ -188,6 +212,9 @@ async function runAction(): Promise<void> {
             <td class="px-3 py-2 whitespace-nowrap text-text-muted">{{ t.submitTime.slice(5) }}</td>
             <td class="px-3 py-2">
               <div class="flex items-center gap-1">
+                <Button variant="outline" size="sm" class="h-6 px-2 text-[11px]" @click="openLogTab(t)">
+                  Log
+                </Button>
                 <Button
                   v-if="t.canUp"
                   variant="outline"
@@ -215,7 +242,6 @@ async function runAction(): Promise<void> {
                 >
                   删除
                 </Button>
-                <span v-if="!t.canUp && !t.canRoll && !t.canDelete" class="text-text-muted">—</span>
               </div>
             </td>
           </tr>
