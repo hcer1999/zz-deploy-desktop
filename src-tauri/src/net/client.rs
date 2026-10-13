@@ -300,6 +300,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn post_raw_sends_no_csrf() {
+        // 登录接口不带 csrfmiddlewaretoken：
+        // 对应插件 src/api/deploy.ts:110，body 里只有 username/password
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/login/"))
+            .respond_with(ResponseTemplate::new(302).insert_header("location", "/"))
+            .mount(&server)
+            .await;
+
+        let c = http_client(&server.uri());
+        let form = vec![
+            ("username".to_string(), "zhangsan".to_string()),
+            ("password".to_string(), "pw".to_string()),
+        ];
+        let r = c.post_raw("/login/", &form).await.unwrap();
+        assert_eq!(r.status, 302);
+
+        let reqs = server.received_requests().await.unwrap();
+        let body = String::from_utf8(reqs[0].body.clone()).unwrap();
+        assert!(body.contains("username=zhangsan"), "实际 body：{body}");
+        assert!(
+            !body.contains("csrfmiddlewaretoken"),
+            "登录请求不应带 CSRF 字段，实际 body：{body}"
+        );
+    }
+
+    #[tokio::test]
     async fn seed_cookie_handles_multiple_pairs_and_ignores_attributes() {
         let c = http_client("https://example.com");
         c.seed_cookie("sessionid=s1; csrftoken=TOK; Path=/; HttpOnly")

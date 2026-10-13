@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Runtime};
+use tauri::{AppHandle, Runtime, State};
 use tauri_plugin_store::StoreExt;
 
 use crate::error::AppError;
@@ -108,9 +108,15 @@ pub async fn config_get<R: Runtime>(app: AppHandle<R>) -> Result<AppConfig, AppE
 #[tauri::command]
 pub async fn config_set<R: Runtime>(
     app: AppHandle<R>,
+    session: State<'_, crate::session::SessionState>,
     patch: AppConfig,
 ) -> Result<AppConfig, AppError> {
+    let previous = load(&app)?;
     save(&app, &patch)?;
+    // 地址变了就重建客户端：旧 Cookie 对新域名无意义，必须丢弃
+    if previous.base_url != patch.base_url {
+        session.rebuild_client(&patch.base_url).await;
+    }
     load(&app)
 }
 
