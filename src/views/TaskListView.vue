@@ -1,17 +1,47 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
+import { submitOnline, submitRollback, deleteTask } from "@/api/deploy";
+import { toUserMessage } from "@/api/http";
+import type { DeployTask } from "@/api/parser";
 import { useTasksStore } from "@/stores/tasks";
+import { useTabsStore } from "@/stores/tabs";
 import StatusBadge from "@/components/common/StatusBadge.vue";
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const tasks = useTasksStore();
+const tabs = useTabsStore();
 const searchDraft = ref(tasks.search);
 
-onMounted(async () => {
-  // 只在还没有数据时拉一次；已有数据说明刚从向导跳过来或刚从别的标签切回来
-  if (tasks.tasks.length === 0) await tasks.refresh();
+/** 本标签是否为当前激活标签 */
+function isActive(): boolean {
+  return tabs.activeTab?.kind === "list";
+}
+
+onMounted(() => {
+  if (isActive()) void tasks.refresh();
 });
+
+/**
+ * 切到本标签时主动拉一次最新数据。
+ *
+ * 为什么不能只靠 onMounted：任务列表是**单例标签**，TabHost 用 v-show
+ * 隐藏而非卸载它，所以组件只挂载一次，切回来时 onMounted 不会重跑。
+ *
+ * 曾经的写法是「onMounted 里判断列表为空才拉」，导致实测问题：
+ * 提交部署后自动跳转到任务列表，看到的却是提交前的旧列表，
+ * 必须手动点一次「刷新」才看得到刚提交的任务。
+ *
+ * 首次挂载时 activeId 已经是本标签，watch 不会触发（无变化），
+ * 由上面的 onMounted 负责，因此不会重复请求。
+ */
+watch(
+  () => tabs.activeId,
+  () => {
+    if (isActive()) void tasks.refresh();
+  },
+);
 
 const lastRefresh = ref("");
 async function doRefresh(): Promise<void> {
@@ -20,6 +50,50 @@ async function doRefresh(): Promise<void> {
 }
 
 const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "Docker"));
+
+// ---------- 行内操作 ----------
+
+type ActionKind = "online" | "rollback" | "delete";
+const pending = ref<{ kind: ActionKind; task: DeployTask } | null>(null);
+const actionBusy = ref(false);
+const flash = ref("");
+
+const ACTION_TEXT: Record<ActionKind, { title: string; confirm: string; danger: boolean }> = {
+  online: { title: "确认上线？", confirm: "上线", danger: false },
+  rollback: { title: "确认回滚？", confirm: "回滚", danger: false },
+  delete: { title: "确认删除？", confirm: "删除", danger: true },
+};
+
+function ask(kind: ActionKind, task: DeployTask): void {
+  pending.value = { kind, task };
+}
+
+async function runAction(): Promise<void> {
+  const p = pending.value;
+  if (!p) return;
+  actionBusy.value = true;
+  try {
+    const fn =
+      p.kind === "online" ? submitOnline : p.kind === "rollback" ? submitRollback : deleteTask;
+    const ok = await fn(tasks.deployType, p.task.taskId);
+    if (!ok) {
+      // 会话过期也会走到这里（isActionOk 已排除登录跳转），
+      // 不再是插件那种"误报成功"
+      flash.value = "操作失败，请重试";
+      return;
+    }
+    flash.value =
+      p.kind === "online" ? "已触发上线" : p.kind === "rollback" ? "已触发回滚" : "已删除";
+    if (p.kind === "delete") tasks.removeLocal(p.task.taskId);
+    pending.value = null;
+    await tasks.refresh();
+  } catch (e) {
+    flash.value = toUserMessage(e);
+  } finally {
+    actionBusy.value = false;
+    setTimeout(() => (flash.value = ""), 3000);
+  }
+}
 </script>
 
 <template>
@@ -101,8 +175,36 @@ const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "D
             <td class="px-3 py-2 whitespace-nowrap">{{ t.submitter }}</td>
             <td class="px-3 py-2 whitespace-nowrap text-text-muted">{{ t.submitTime.slice(5) }}</td>
             <td class="px-3 py-2">
-              <!-- 行内操作在 Task 9 接上 -->
-              <span class="text-text-muted">—</span>
+              <div class="flex items-center gap-1">
+                <Button
+                  v-if="t.canUp"
+                  variant="outline"
+                  size="sm"
+                  class="h-6 px-2 text-[11px]"
+                  @click="ask('online', t)"
+                >
+                  上线
+                </Button>
+                <Button
+                  v-if="t.canRoll"
+                  variant="outline"
+                  size="sm"
+                  class="h-6 px-2 text-[11px]"
+                  @click="ask('rollback', t)"
+                >
+                  回滚
+                </Button>
+                <Button
+                  v-if="t.canDelete"
+                  variant="outline"
+                  size="sm"
+                  class="h-6 px-2 text-[11px] text-danger hover:text-danger"
+                  @click="ask('delete', t)"
+                >
+                  删除
+                </Button>
+                <span v-if="!t.canUp && !t.canRoll && !t.canDelete" class="text-text-muted">—</span>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -154,5 +256,22 @@ const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "D
       </Button>
       <span class="text-[11px] text-text-muted ml-2">共 {{ tasks.pageInfo.totalPages }} 页</span>
     </div>
+
+    <ConfirmDialog
+      :open="pending !== null"
+      :title="pending ? ACTION_TEXT[pending.kind].title : ''"
+      :description="pending ? `${pending.task.projectName} · ${pending.task.envName}` : ''"
+      :confirm-text="pending ? ACTION_TEXT[pending.kind].confirm : '确认'"
+      :danger="pending ? ACTION_TEXT[pending.kind].danger : false"
+      :loading="actionBusy"
+      @update:open="
+        (v: boolean) => {
+          if (!v) pending = null;
+        }
+      "
+      @confirm="runAction"
+    />
+
+    <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
   </div>
 </template>
