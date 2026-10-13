@@ -11,7 +11,9 @@ import { useAuthStore } from "./stores/auth";
 import { useSettingsStore } from "./stores/settings";
 import { useThemeStore } from "./stores/theme";
 import { useFavoritesStore } from "./stores/favorites";
+import { useLogsStore } from "./stores/logs";
 import { ENVS } from "./api/deploy";
+import type { LogDataEvent, LogStatusEvent } from "./api/log";
 
 const tabs = useTabsStore();
 const auth = useAuthStore();
@@ -27,6 +29,11 @@ onMounted(async () => {
   await settings.load();
   theme.apply(settings.theme);
   await auth.refresh();
+
+  // 构建日志是事件流：Rust 推给所有 Webview，由 logs store 按 sessionId 分发
+  const logs = useLogsStore();
+  await listen<LogDataEvent>("log://data", (e) => logs.onData(e.payload));
+  await listen<LogStatusEvent>("log://status", (e) => logs.onStatus(e.payload));
 
   const favorites = useFavoritesStore();
   await favorites.load();

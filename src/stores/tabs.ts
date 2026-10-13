@@ -1,5 +1,7 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref, computed } from "vue";
+import { useLogsStore } from "./logs";
+import { clearTab } from "./tabPayload";
 
 export type TabKind = "wizard" | "favorites" | "list" | "history" | "settings" | "log";
 
@@ -80,8 +82,16 @@ export const useTabsStore = defineStore("tabs", () => {
   function close(id: string): void {
     const idx = tabs.value.findIndex((t) => t.id === id);
     if (idx === -1) return;
+    const target = tabs.value[idx];
     const wasActive = activeId.value === id;
     tabs.value.splice(idx, 1);
+
+    // 日志标签关闭时要通知 Rust 释放长连接与落盘句柄
+    if (target.kind === "log" && target.taskId !== undefined) {
+      void useLogsStore().closeByTask(target.taskId);
+    }
+    clearTab(id);
+
     if (!wasActive) return;
     const next = tabs.value[idx] ?? tabs.value[idx - 1] ?? null;
     activeId.value = next ? next.id : null;

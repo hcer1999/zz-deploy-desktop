@@ -3,6 +3,7 @@ import DeployWizard from "@/views/DeployWizard.vue";
 import TaskListView from "@/views/TaskListView.vue";
 import FavoritesView from "@/views/FavoritesView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import LogView from "@/views/LogView.vue";
 import WipView from "@/views/WipView.vue";
 import { useTabsStore } from "@/stores/tabs";
 
@@ -23,6 +24,7 @@ const tabs = useTabsStore();
     <TaskListView v-else-if="t.kind === 'list'" />
     <FavoritesView v-else-if="t.kind === 'favorites'" />
     <SettingsView v-else-if="t.kind === 'settings'" />
+    <LogView v-else-if="t.kind === 'log'" :tab-id="t.id" />
     <WipView v-else :title="tabs.titleOf(t)" />
   </div>
 </template>
