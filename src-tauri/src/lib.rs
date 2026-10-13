@@ -1,3 +1,6 @@
+pub mod error;
+pub mod net;
+
 // 命令与模块在后续 Task 中逐个加入。
 // 参见 docs/superpowers/plans/2026-10-13-plan1-scaffold-and-auth.md
 
