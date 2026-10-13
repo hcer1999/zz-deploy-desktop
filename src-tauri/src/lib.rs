@@ -55,6 +55,9 @@ pub fn run() {
             commands::auth::auth_relogin,
             commands::auth::auth_forget_credentials,
             commands::auth::set_base_url,
+            commands::favorites::favorites_list,
+            commands::favorites::favorites_save,
+            commands::favorites::favorites_delete,
             net::command::http_request,
         ])
         .run(tauri::generate_context!())
