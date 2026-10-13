@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/*
+ * 主题切换策略：Tailwind 的 class 变体。
+ * <html> 上挂 .dark 类即为深色模式，由 stores/theme.ts 控制。
+ * 写法覆盖 .dark 自身与其后代，保证挂在 <html> 上也能生效。
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * 原始 token 使用 --deploy- 前缀，与 shadcn-vue 注入的变量（--background 等）隔开，
+ * 避免命名冲突，也避免在 @theme inline 里写出 var() 自引用。
+ *
+ * 默认值 = 浅色模式：纯白面 + 中性灰 + 单一靛蓝强调
+ * （对应 mockup style-b-light-engineering.png）
+ */
+:root {
+  --deploy-bg: oklch(0.98 0.002 260);
+  --deploy-surface: oklch(1 0 0);
+  --deploy-surface-2: oklch(0.975 0.003 260);
+  --deploy-border: oklch(0.91 0.005 260);
+  --deploy-text: oklch(0.22 0.01 260);
+  --deploy-text-muted: oklch(0.52 0.012 260);
+  --deploy-accent: oklch(0.55 0.2 265);
+  --deploy-accent-fg: oklch(0.99 0 0);
+  --deploy-success: oklch(0.55 0.16 150);
+  --deploy-warning: oklch(0.62 0.14 70);
+  --deploy-danger: oklch(0.55 0.21 25);
+}
+
+/*
+ * 深色模式：近黑底 + 靛紫强调
+ * （对应 mockup style-a-dark-saas.png，spec §5 指定的主视觉）
+ *
+ * 该规则未包裹在 @layer 中，属于无层级样式，优先级高于 Tailwind 的
+ * @layer theme 里生成的 :root 变量，因此能可靠覆盖。
+ */
+.dark {
+  --deploy-bg: oklch(0.16 0.012 265);
+  --deploy-surface: oklch(0.2 0.014 265);
+  --deploy-surface-2: oklch(0.24 0.016 265);
+  --deploy-border: oklch(0.3 0.016 265);
+  --deploy-text: oklch(0.95 0.004 265);
+  --deploy-text-muted: oklch(0.68 0.012 265);
+  --deploy-accent: oklch(0.62 0.19 275);
+  --deploy-accent-fg: oklch(0.99 0 0);
+  --deploy-success: oklch(0.72 0.16 155);
+  --deploy-warning: oklch(0.8 0.14 80);
+  --deploy-danger: oklch(0.68 0.19 25);
+}
+
+/* 把原始 token 暴露给 Tailwind，生成 bg-bg / text-text / border-border 等工具类 */
+@theme inline {
+  --color-bg: var(--deploy-bg);
+  --color-surface: var(--deploy-surface);
+  --color-surface-2: var(--deploy-surface-2);
+  --color-border: var(--deploy-border);
+  --color-text: var(--deploy-text);
+  --color-text-muted: var(--deploy-text-muted);
+  --color-accent: var(--deploy-accent);
+  --color-accent-fg: var(--deploy-accent-fg);
+  --color-success: var(--deploy-success);
+  --color-warning: var(--deploy-warning);
+  --color-danger: var(--deploy-danger);
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--deploy-bg);
+  color: var(--deploy-text);
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  /* 桌面应用不需要整页滚动，滚动交给内容区 */
+  overflow: hidden;
+}
