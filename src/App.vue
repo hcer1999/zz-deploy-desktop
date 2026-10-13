@@ -11,14 +11,16 @@ import { useAuthStore } from "./stores/auth";
 import { useSettingsStore } from "./stores/settings";
 import { useThemeStore } from "./stores/theme";
 import { useFavoritesStore } from "./stores/favorites";
-import { useLogsStore } from "./stores/logs";
+import { useBuildNotifications } from "./composables/useBuildNotifications";
+import { registerLogEvents } from "./composables/useLogEvents";
 import { ENVS } from "./api/deploy";
-import type { LogDataEvent, LogStatusEvent } from "./api/log";
 
 const tabs = useTabsStore();
 const auth = useAuthStore();
 const settings = useSettingsStore();
 const theme = useThemeStore();
+// 构建完成通知：本 composable 会在内部完成"状态跃迁 diff"与"通知点击"的订阅
+const notify = useBuildNotifications();
 
 onMounted(async () => {
   // 续登失败 → 弹回登录页
@@ -35,10 +37,9 @@ onMounted(async () => {
   theme.apply(settings.theme);
   await auth.refresh();
 
-  // 构建日志是事件流：Rust 推给所有 Webview，由 logs store 按 sessionId 分发
-  const logs = useLogsStore();
-  await listen<LogDataEvent>("log://data", (e) => logs.onData(e.payload));
-  await listen<LogStatusEvent>("log://status", (e) => logs.onStatus(e.payload));
+  // 构建日志是事件流：Rust 推给所有 Webview，由 logs store 按 sessionId 分发；
+  // 同一条 log://status 还要驱动构建完成通知，所以统一从一个入口订阅
+  await registerLogEvents(notify);
 
   const favorites = useFavoritesStore();
   await favorites.load();

@@ -17,6 +17,7 @@
     "core:tray:default",
     "core:menu:default",
     "os:default",
-    "store:default"
+    "store:default",
+    "notification:default"
   ]
 }
