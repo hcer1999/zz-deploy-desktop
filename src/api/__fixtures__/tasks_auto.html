@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" /> -->
+    <title>运维管理平台</title>
+
+    <link rel="shortcut icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/font-awesome-4.7.0/css/font-awesome.css" rel="stylesheet">
+<!-- <link href="/static/css/plugins/iCheck/custom.css" rel="stylesheet">
+<link href="/static/css/animate.css" rel="stylesheet"> -->
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/style.css" rel="stylesheet">
+<!-- <link href="/static/css/colorbox.css" rel="stylesheet">
+<link href="/static/css/vaildator/jquery.validator.css" rel="stylesheet">
+<link href="/static/css/magnific/magnific-popup.css" rel="stylesheet">
+<link href="/static/css/plugins/fullcalendar/fullcalendar.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/basic.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/dropzone.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.css"/> -->
+
+
+    <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/jquery-3.3.1.min.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/bootstrap.min.js"></script>
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows -->
+<!-- <script src="/static/js/jquery.colorbox.js"></script> -->
+
+<!-- validator js -->
+<!-- <script src="/static/js/validator/jquery.validator.js"></script>
+<script src="/static/js/validator/zh_CN.js"></script>
+<script src="/static/js/Chart.js"></script>
+<script src="/static/js/plugins/nestable/jquery.nestable.js"></script>
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script>
+
+<script src="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.js"></script> -->
+<!-- <script src="/static/js/plugins/gameinfo/gameinfo.js"></script> -->
+
+
+
+
+</head>
+
+<body>
+
+
+    <div id="wrapper">
+          <nav class="navbar-default navbar-static-side" role="navigation">
+      <div class="sidebar-collapse">
+          <ul class="nav metismenu " id="side-menu">
+              <li class="nav-header">
+    <div class="dropdown profile-element">
+        <span>
+            
+                <img alt="image" class="img-circle" width="48" height="48" src="/static/img/0QlVGwAAAAGSURBVAMAW4rma5SIkSEAAAAASUVORK5CYII=_hehaocheng.png" />
+            
+        </span>
+        <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+            <span class="clear">
+                <span class="block m-t-xs">
+                    <strong class="font-bold">贺浩成  <span style="color: #8095a8"></span></strong>
+                </span>
+                <span class="text-muted text-xs block">
+                     个人信息<b class="caret"></b>
+                </span>
+            </span>
+        </a>
+        <ul class="dropdown-menu animated fadeInRight m-t-xs">
+            <li><a href="/cmdb/userinfo/" >查看账号</a></li>
+            <li class="divider"></li>
+            <li><a href="/logout/">注销</a></li>
+        </ul>
+    </div>
+
+    <div class="logo-element">
+        OPS
+    </div>
+</li>
+
+                      <li>
+                          <a href="/index/"><i class="fa fa-th-large fa-fw"></i> <span class="nav-label">主面板</span></a>
+                      </li>
+ 
+ 
+ 
+ 
+ 
+     
+         
+             <li class="server_manage">
+                 <a href="#"><i class="fa fa-cloud fa-fw" aria-hidden="true"></i> <span class="nav-label">基础资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="all_server"><a href="/cmdb/server_manage/all_server/">查看服务器</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="projectmanage">
+                 <a href="#"><i class="fa fa-product-hunt fa-fw" aria-hidden="true"></i> <span class="nav-label">项目管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="kanban"><a href="/bres/projectmanage/kanban/">迭代看板</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="sky">
+                 <a href="#"><i class="fa fa-skype fa-fw" aria-hidden="true"></i> <span class="nav-label">链路追踪</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="nodes"><a href="/skywalk/sky/nodes/">资源节点</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="services"><a href="/skywalk/sky/services/">服务列表</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="app">
+                 <a href="#"><i class="fa fa-cubes fa-fw" aria-hidden="true"></i> <span class="nav-label">服务资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="db">
+                                     <a href="#">Mysql管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="instance"><a href="/dbmanage/app/db/instance/">实例管理</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="redis">
+                                     <a href="#">Redis管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="redisList"><a href="/dbmanage/app/redis/redisList/">redis列表</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="workline_manage">
+                 <a href="#"><i class="fa fa-retweet fa-fw" aria-hidden="true"></i> <span class="nav-label">监控管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             <li class="urlorder">
+                                 <a href="#">URL告警<span class="fa arrow"></span></a>                        
+                                     <ul class="nav nav-third-level collapse">
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                     </ul>
+                             </li>
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="dnsmanage">
+                 <a href="#"><i class="fa fa-bandcamp fa-fw" aria-hidden="true"></i> <span class="nav-label">域名管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="domain"><a href="/bres/dnsmanage/domain/">域名解析</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="record_history"><a href="/bres/dnsmanage/record_history/">记录历史</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="deploy">
+                 <a href="#"><i class="fa fa-recycle fa-fw" aria-hidden="true"></i> <span class="nav-label">自动化部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/deployment/deploy/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/deployment/deploy/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/deployment/deploy/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="docker">
+                 <a href="#"><i class="fa fa-first-order fa-fw" aria-hidden="true"></i> <span class="nav-label">Docker部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/dockerdeploy/docker/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/dockerdeploy/docker/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/dockerdeploy/docker/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+  
+  
+ 
+ 
+ 
+          </ul>
+ 
+      </div>
+  </nav>
+
+
+        <div id="page-wrapper" class="gray-bg">
+            <div class="row border-bottom">
+                
+<nav class="navbar navbar-static-top  " role="navigation" style="margin-bottom: 0">
+        <div class="navbar-header">
+            <a class="navbar-minimalize minimalize-styl-2 btn btn-primary " href="#"><i class="fa fa-bars"></i> </a>
+        </div>
+
+
+            <ul class="nav navbar-top-links navbar-right">
+                <li>
+                    <span class="m-r-sm text-muted welcome-message ops_phone "  style="font-size:16px; color: red"></span>
+                </li>
+                <li>
+                    <a href="/logout/">
+                        <i class="fa fa-sign-out"></i> Log out
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+            </div>
+            
+<div class="row wrapper border-bottom white-bg page-heading">
+    <div class="col-lg-10">
+        <h2></h2>
+        <ol class="breadcrumb">
+            <li>
+                <a href="#">我的上线</a>
+            </li>
+            <li>
+                <a>上线列表</a>
+            </li>
+            <li class="active">
+                <strong></strong>
+            </li>
+        </ol>
+    </div>
+    <div class="col-lg-2">
+    </div>
+</div>
+
+
+
+
+
+<link href="/static/css/plugins/footable/footable.core.css" rel="stylesheet">
+<link href="/static/css/plugins/toastr/toastr.min.css" rel="stylesheet">
+
+<style type="text/css">
+  .nav-li li{float: left;}
+  
+  pre { 
+      border-bottom: #2f6fab 1px dashed;
+      border-left: #2f6fab 1px dashed;
+      padding-bottom: 1em;
+      line-height: 1.1em;
+      background-color: #262626;
+      padding-left: 1em;
+      padding-right: 1em;
+      color: white;
+      border-top: #2f6fab 1px dashed;
+      border-right: #2f6fab 1px dashed;
+      padding-top: 1em;
+      height: 700px;
+  }
+  .th_name {
+      width:20%;
+      /*color: green;*/
+  }  
+
+
+.search-form button[type="submit"] {
+    background: none;
+    border: none;
+    margin-left: -2.5em;
+    margin-bottom: 0em;
+    color: #aaa;
+}
+.next-icon {
+    display: inline-block;
+    font-family: NextIcon;
+    font-style: normal;
+    font-weight: 400;
+    text-transform: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+.next-icon.next-xs:before {
+    width: 12px;
+    font-size: 12px;
+    line-height: inherit;
+}
+.next-icon-select:before {
+    content: "\E687";
+}
+.next-icon:before {
+    display: inline-block;
+    vertical-align: middle;
+    text-align: center;
+}
+.cname-icon-online {
+    position: absolute;
+    left: 0;
+    top: -1px;
+    color: #1e8e3e;
+    margin-right: 4px;
+}
+</style>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="ibox float-e-margins">
+            <div class="ibox-content">
+                <div class="row">
+                    <div class="pull-right">
+                              <form class="navbar-form search-form" method="get">
+                                <div class="form-group">
+                                    <select type="text" class="form-control" name="env" onchange="this.form.submit()">
+                                        <option value="0" >按环境筛选</option>
+                                                            
+                            <option value="1" >测试环境</option>
+                        
+                            <option value="2" >正式环境</option>
+                        
+                            <option value="4" >预发布环境</option>
+                        
+                            <option value="5" >马甲账号新加坡机房</option>
+                        
+                            <option value="6" >阿里云</option>
+                        
+                            <option value="7" >开发环境</option>
+                        
+                            <option value="8" >测试环境2</option>
+                        
+                            <option value="9" >UAT环境</option>
+                        
+                            <option value="10" >压测环境</option>
+                        
+                            <option value="11" >测试环境3</option>
+                        
+                            <option value="12" >谷歌云</option>
+                        
+                            <option value="14" >腾讯云</option>
+                        
+                            <option value="15" >香港adx</option>
+                        
+                            <option value="16" >sdkadx</option>
+                        
+                            <option value="17" >us-gke</option>
+                        
+                            <option value="18" >us-east</option>
+                        
+                            <option value="19" >gz-tke</option>
+                        
+                            <option value="20" >us-east-tke</option>
+                        
+                            <option value="21" >hk-tke</option>
+                        
+                            <option value="23" >external_us</option>
+                        
+
+
+
+
+
+
+
+
+
+                                    </select>
+                                  <input type="text" class="form-control" name="search" value="" placeholder="搜索">
+                                </div>
+                                  <button type="submit" class="btn btn-default"><span class="glyphicon glyphicon-search"></span></button>
+                              </form>
+                    </div>
+                </div>
+                 <div class="">
+                    <form id="contents_form" name="contents_form">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-bordered table-hover" id="editable" name="editable" style="width:100%">
+                                    <thead>
+                                        <tr>
+
+                                          <th width="10%" class="text-center">标题</th>
+                                          <th style="display: none; " >发布状态</th>
+                                          <th class="text-center">项目</th>
+                                          <th class="text-center">环境</th>
+                                          <th class="text-center">迭代名称</th>
+                                          <th width="14%" class="text-center">主机列表</th>
+                                          <th class="text-center">branch/tag</th>
+                                          <th class="text-center">发布版本</th>
+                                          <th class="text-center">上线状态</th>
+                                          <th class="text-center">构建状态</th>
+                                          <th class="text-center">提交时间</th>
+                                          <th class="text-center">提交人员</th>
+                                          <th class="text-center">操作</th>
+                                        </tr>
+                                   </thead>
+                                    <tbody>
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62880">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62880">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62880">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62880">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62880">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62880">2b424da6184bca8129dfd86ad431cd25d2e6a106</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/20/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 13:38:56</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                      
+                                                        <a  onclick="return is_up('62880')" href="/deployment/deploy/task/62880/up/" class="btn btn-blue btn-sm btn-xs" style="color: green"><i class="fa fa-cloud-upload"></i> 上线</a>
+                                                      
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62880')" style="color: red;"  href="/deployment/deploy/submit/task/62880/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62880')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62879">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62879">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62879">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62879">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62879">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62879">e8ab2838500131af3b13da1c70b427f2e92d43bf</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/19/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 13:36:07</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                      
+                                                        <a  onclick="return is_up('62879')" href="/deployment/deploy/task/62879/up/" class="btn btn-blue btn-sm btn-xs" style="color: green"><i class="fa fa-cloud-upload"></i> 上线</a>
+                                                      
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62879')" style="color: red;"  href="/deployment/deploy/submit/task/62879/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62879')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62878">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62878">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62878">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62878">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62878">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62878">4430ceeaee0714c2c410ad0ab909503994de753b</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/18/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 10:01:48</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                      
+                                                        <a  onclick="return is_up('62878')" href="/deployment/deploy/task/62878/up/" class="btn btn-blue btn-sm btn-xs" style="color: green"><i class="fa fa-cloud-upload"></i> 上线</a>
+                                                      
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62878')" style="color: red;"  href="/deployment/deploy/submit/task/62878/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62878')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62877">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62877">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62877">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62877">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62877">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62877">4f8d4b436d5d016e26e827f52f4814a82ef856c0</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/17/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 16:43:30</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                      
+                                                        <a  onclick="return is_up('62877')" href="/deployment/deploy/task/62877/up/" class="btn btn-blue btn-sm btn-xs" style="color: green"><i class="fa fa-cloud-upload"></i> 上线</a>
+                                                      
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62877')" style="color: red;"  href="/deployment/deploy/submit/task/62877/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62877')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62876">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62876">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62876">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62876">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62876">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62876">c25d96969efcd5461b6d746e9f408dbbdb124bae</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/16/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 16:04:34</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62876')" style="color: red;"  href="/deployment/deploy/submit/task/62876/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62876')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62875">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62875">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62875">cps-shorts-2</td>
+                                              <td class="text-center" data-editable='false' id="env_62875">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62875">origin/feature/upload</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62875">14645c75c98536581aef40051e78c341b3395e03</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-2_autodeploy_h5/36/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 16:04:29</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62875')" style="color: red;"  href="/deployment/deploy/submit/task/62875/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62875')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62874">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62874">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62874">cps-shorts</td>
+                                              <td class="text-center" data-editable='false' id="env_62874">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62874">origin/master</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62874">00d7b714278ef85ab97b91967537e54c057d5288</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts_autodeploy_h5/153/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 16:04:25</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62874')" style="color: red;"  href="/deployment/deploy/submit/task/62874/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62874')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62873">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62873">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62873">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62873">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62873">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62873">15a868fa7a687ad13ba65aeca44c4ff3bebc8684</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/15/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 15:23:30</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62873')" style="color: red;"  href="/deployment/deploy/submit/task/62873/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62873')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62872">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62872">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62872">cps-shorts-2</td>
+                                              <td class="text-center" data-editable='false' id="env_62872">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62872">origin/feature/upload</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62872">eb0a7c92e237c6d33534e0f7dc72ea7dad97bcdc</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-2_autodeploy_h5/35/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 15:21:55</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62872')" style="color: red;"  href="/deployment/deploy/submit/task/62872/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62872')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62871">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62871">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62871">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62871">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62871">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62871">261f550b3ddfe517abdd8846fe7dfca6069904c6</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/14/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 11:23:32</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62871')" style="color: red;"  href="/deployment/deploy/submit/task/62871/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62871')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62870">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62870">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62870">cps-shorts</td>
+                                              <td class="text-center" data-editable='false' id="env_62870">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62870">origin/master</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62870">374b1d6fb41bd85ba0fbc64dace4cd76c1eaae59</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts_autodeploy_h5/152/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-12 09:54:57</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62870')" style="color: red;"  href="/deployment/deploy/submit/task/62870/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62870')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62869">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62869">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62869">cps-shorts</td>
+                                              <td class="text-center" data-editable='false' id="env_62869">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62869">origin/master</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62869">7e811d6e7f95d049139ea2f07b55bd10dd73ece7</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts_autodeploy_h5/151/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 18:08:40</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62869')" style="color: red;"  href="/deployment/deploy/submit/task/62869/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62869')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62868">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62868">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62868">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62868">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62868">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62868">cd1f26dc880613f7024e003d419630870e21af29</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/13/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 17:58:19</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62868')" style="color: red;"  href="/deployment/deploy/submit/task/62868/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62868')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62864">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62864">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62864">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62864">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62864">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62864">10bfa7adbcb7dfcf2c5521ff58acac6dd1d82d00</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/12/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 14:13:02</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62864')" style="color: red;"  href="/deployment/deploy/submit/task/62864/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62864')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62863">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62863">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62863">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62863">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62863">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62863">b53b4203285e47a0465cd75fde6c5b938c03410a</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/11/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 14:11:45</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62863')" style="color: red;"  href="/deployment/deploy/submit/task/62863/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62863')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62862">【灰度】 -  Merge branch &#39;master&#39; into feature/upload-narto</td>
+                                              <td style="display: none; " id="dtype_62862">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62862">cps-shorts-3</td>
+                                              <td class="text-center" data-editable='false' id="env_62862">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62862">origin/feature/upload-narto</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62862">c5cb6b210cdfb67af29d7e703e9f3db028667cab</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-3_autodeploy_h5/10/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 13:42:46</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62862')" style="color: red;"  href="/deployment/deploy/submit/task/62862/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62862')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62861">【灰度】 -  Merge branch &#39;master&#39; into feature/upload</td>
+                                              <td style="display: none; " id="dtype_62861">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62861">cps-shorts-2</td>
+                                              <td class="text-center" data-editable='false' id="env_62861">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62861">origin/feature/upload</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62861">d85fb33e57b1d7f0ccc0a3f5bc4e64f5074c001c</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts-2_autodeploy_h5/34/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 13:42:37</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62861')" style="color: red;"  href="/deployment/deploy/submit/task/62861/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62861')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62860">【灰度】 -  feat:fix</td>
+                                              <td style="display: none; " id="dtype_62860">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62860">cps-shorts</td>
+                                              <td class="text-center" data-editable='false' id="env_62860">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62860">origin/master</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62860">b7fff4b09dff9921edc36b8400e5735915ccc06c</td>
+                                              <td class="text-center" data-editable='false'>
+                                                    
+                                                  <font color='#CCCCCC'>未上线</font>
+                                                
+                                                
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_cps-shorts_autodeploy_h5/150/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 13:42:33</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                  
+                                                    
+                                                  
+                                                 
+                                                   <a onclick="return is_del('62860')" style="color: red;"  href="/deployment/deploy/submit/task/62860/" class="btn btn-blue btn-sm btn-xs"><i class="fa fa-trash-o"></i> 删除</a>
+                                                   
+                                                
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62860')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62859">【灰度】 -  更新ads</td>
+                                              <td style="display: none; " id="dtype_62859">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62859">phonemastertool-com</td>
+                                              <td class="text-center" data-editable='false' id="env_62859">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62859">origin/release/phonemastertool_com</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62859">d9c249db1ba890cdf11ca35ed79019741a2ae3de</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                  <a class='label label-primary'  target="_blank" href=/deployment/deploy/tasks_log/56229/see/>上线成功</a>
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_phonemastertool-com_autodeploy_h5/4/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 11:43:27</td>
+                                              <td class="text-center" data-editable='false'>彭威</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                        <a onclick="return is_roll('62859')" href="/deployment/deploy/task/62859/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62859')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_62858">【灰度】 -  更新ads文件</td>
+                                              <td style="display: none; " id="dtype_62858">0</td>
+                                              <td class="text-center" data-editable='false' id="project_62858">easycleanfiles-com</td>
+                                              <td class="text-center" data-editable='false' id="env_62858">正式环境</td>
+                                              <td class="text-center" data-editable='false' >
+                                                
+
+                                              </td>
+                                              <td class="text-left" data-editable='false'>
+                                                <ul class="nav-li">
+                                                    
+                                                </ul>
+                                              </td>
+                                                
+                                                    <td class="text-center" data-editable='false' id="branchtag_62858">origin/release/easycleanfiles_com</td>
+                                                
+
+                                              <td class="text-center" data-editable='false' id="version_62858">e92d13cfe2280b34bee2ebfcec0a444c4e06559d</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                  <a class='label label-primary'  target="_blank" href=/deployment/deploy/tasks_log/56228/see/>上线成功</a>
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://jenkins.zhizhengroup.com/job/production_easycleanfiles-com_autodeploy_h5/5/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-10 11:41:52</td>
+                                              <td class="text-center" data-editable='false'>彭威</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                        <a onclick="return is_roll('62858')" href="/deployment/deploy/task/62858/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                
+                                                
+                                                
+                                                <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('62858')"><i class="fa fa-commenting-o"></i> BuildLog</a>                    
+                                              </td>
+                                            </tr> 
+                                      
+                                   </tbody>
+                                </table>
+                                <nav aria-label="Page navigation" class="text-center"><ul class="pagination"><li><a href="/deployment/deploy/task/?page=1&search=">首页</a></li><li class="disabled"><a href="#" aria-label="Previous"><span aria-hidden="true">&laquo;</span></a></li><li class="active"><a href="/deployment/deploy/task/?page=1&search=">1</a></li><li><a href="/deployment/deploy/task/?page=2&search=">2</a></li><li><a href="/deployment/deploy/task/?page=3&search=">3</a></li><li><a href="/deployment/deploy/task/?page=4&search=">4</a></li><li><a href="/deployment/deploy/task/?page=5&search=">5</a></li><li><a href="/deployment/deploy/task/?page=2&search=" aria-label="Previous"><span aria-hidden="true">&raquo;</span></a></li><li><a href="/deployment/deploy/task/?page=626&search=">尾页</a></li></ul></nav>
+                            </div>  
+                           </form>
+                        </div>  
+             </div>
+        </div>
+    </div>
+</div>                   
+
+<div class="modal fade" id="get_build_log" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="exampleModalLabel" align="center">构建日志</h4></div>
+      <div class="modal-body">
+        <pre id="build_log">
+          
+        </pre>
+      </div>
+  </div>
+</div>
+
+<script src="/static/js/plugins/footable/footable.all.min.js"></script>
+<script src="/static/js/plugins/toastr/toastr.min.js"></script>
+<script>
+    var websock_url = 'wss://itsm.zhizhengroup.com/wssapp/'
+    var session_key = '00vvcgc86pmyizqtmt0fr2to0zqj1lij'
+    var sock_conn_log = new Object();
+</script>
+<script src="/static/js/myjs/build_log.js"></script>
+<script src="/static/js/myjs/deploy.js"></script>
+
+
+            <div class="footer fixed">
+                <div class="pull-right">
+                    <!-- 10GB of <strong>250GB</strong> Free. -->
+                </div>
+                <div>
+                    <strong>Copyright</strong>©2018-2026 Batmobi. All Rights Reserved
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+    <!-- Mainly scripts -->
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/metisMenu/jquery.metisMenu.js"></script>
+
+<!-- <script src="/static/js/plugins/slimscroll/jquery.slimscroll.min.js"></script> 
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script> 
+<script src="/static/js/bootstrap-dialog.js"></script> 
+<script src="/static/js/mindmup-editabletable.js"></script> 
+<script src="/static/js/plugins/fullcalendar/moment.min.js"></script>
+ <script src="/static/js/plugins/fullcalendar/fullcalendar.min.js"></script>   -->
+
+<!-- Custom and plugin javascript -->
+ <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/inspinia.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/pace/pace.min.js"></script> 
+
+
+
+<!-- Peity -->
+<!-- <script src="/static/js/plugins/peity/jquery.peity.min.js"></script> -->
+<!-- Peity -->
+<!-- <script src="/static/js/demo/peity-demo.js"></script> -->
+
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows layer-->
+<!-- <script src="/static/js/layer/layer.min.js"></script> -->
+
+
+
+
+
+
+<!-- active menu -->
+<script>
+
+    var str = document.location.pathname.split("/")[1];
+    var str1 = document.location.pathname.split("/")[2];
+    var str2 = document.location.pathname.split("/")[3];
+    var str3 = document.location.pathname.split("/")[4];
+
+    function GetQueryString(name)
+    {
+         var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)");
+         var r = window.location.search.substr(1).match(reg);
+         if(r!=null)return  unescape(r[2]); return null;
+    }
+
+
+
+    if(str1.length > 0){
+       project_class = GetQueryString("project_class");
+       // project = GetQueryString("project");
+       $("."+str1).addClass('active');
+       if (str2.length > 0) {
+            $("."+str2).addClass('active');
+       };
+       if (str3.length > 0) {
+            $("."+str3).addClass('active');
+       };       
+       $("."+project_class).addClass('active');
+       // $("."+project).addClass('active');
+
+    }
+    // else if(str2.length > 0){
+    //     $("."+str2).addClass('active');
+    // }else{
+    //     $("."+str).addClass('active');
+    // }
+
+</script>
+
+
+</html>
+

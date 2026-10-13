@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" /> -->
+    <title>运维管理平台</title>
+
+    <link rel="shortcut icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/font-awesome-4.7.0/css/font-awesome.css" rel="stylesheet">
+<!-- <link href="/static/css/plugins/iCheck/custom.css" rel="stylesheet">
+<link href="/static/css/animate.css" rel="stylesheet"> -->
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/style.css" rel="stylesheet">
+<!-- <link href="/static/css/colorbox.css" rel="stylesheet">
+<link href="/static/css/vaildator/jquery.validator.css" rel="stylesheet">
+<link href="/static/css/magnific/magnific-popup.css" rel="stylesheet">
+<link href="/static/css/plugins/fullcalendar/fullcalendar.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/basic.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/dropzone.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.css"/> -->
+
+
+    <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/jquery-3.3.1.min.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/bootstrap.min.js"></script>
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows -->
+<!-- <script src="/static/js/jquery.colorbox.js"></script> -->
+
+<!-- validator js -->
+<!-- <script src="/static/js/validator/jquery.validator.js"></script>
+<script src="/static/js/validator/zh_CN.js"></script>
+<script src="/static/js/Chart.js"></script>
+<script src="/static/js/plugins/nestable/jquery.nestable.js"></script>
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script>
+
+<script src="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.js"></script> -->
+<!-- <script src="/static/js/plugins/gameinfo/gameinfo.js"></script> -->
+
+
+
+
+</head>
+
+<body>
+
+
+    <div id="wrapper">
+          <nav class="navbar-default navbar-static-side" role="navigation">
+      <div class="sidebar-collapse">
+          <ul class="nav metismenu " id="side-menu">
+              <li class="nav-header">
+    <div class="dropdown profile-element">
+        <span>
+            
+                <img alt="image" class="img-circle" width="48" height="48" src="/static/img/0QlVGwAAAAGSURBVAMAW4rma5SIkSEAAAAASUVORK5CYII=_hehaocheng.png" />
+            
+        </span>
+        <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+            <span class="clear">
+                <span class="block m-t-xs">
+                    <strong class="font-bold">贺浩成  <span style="color: #8095a8"></span></strong>
+                </span>
+                <span class="text-muted text-xs block">
+                     个人信息<b class="caret"></b>
+                </span>
+            </span>
+        </a>
+        <ul class="dropdown-menu animated fadeInRight m-t-xs">
+            <li><a href="/cmdb/userinfo/" >查看账号</a></li>
+            <li class="divider"></li>
+            <li><a href="/logout/">注销</a></li>
+        </ul>
+    </div>
+
+    <div class="logo-element">
+        OPS
+    </div>
+</li>
+
+                      <li>
+                          <a href="/index/"><i class="fa fa-th-large fa-fw"></i> <span class="nav-label">主面板</span></a>
+                      </li>
+ 
+ 
+ 
+ 
+ 
+     
+         
+             <li class="server_manage">
+                 <a href="#"><i class="fa fa-cloud fa-fw" aria-hidden="true"></i> <span class="nav-label">基础资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="all_server"><a href="/cmdb/server_manage/all_server/">查看服务器</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="projectmanage">
+                 <a href="#"><i class="fa fa-product-hunt fa-fw" aria-hidden="true"></i> <span class="nav-label">项目管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="kanban"><a href="/bres/projectmanage/kanban/">迭代看板</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="sky">
+                 <a href="#"><i class="fa fa-skype fa-fw" aria-hidden="true"></i> <span class="nav-label">链路追踪</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="nodes"><a href="/skywalk/sky/nodes/">资源节点</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="services"><a href="/skywalk/sky/services/">服务列表</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="app">
+                 <a href="#"><i class="fa fa-cubes fa-fw" aria-hidden="true"></i> <span class="nav-label">服务资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="db">
+                                     <a href="#">Mysql管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="instance"><a href="/dbmanage/app/db/instance/">实例管理</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="redis">
+                                     <a href="#">Redis管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="redisList"><a href="/dbmanage/app/redis/redisList/">redis列表</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="workline_manage">
+                 <a href="#"><i class="fa fa-retweet fa-fw" aria-hidden="true"></i> <span class="nav-label">监控管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             <li class="urlorder">
+                                 <a href="#">URL告警<span class="fa arrow"></span></a>                        
+                                     <ul class="nav nav-third-level collapse">
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                     </ul>
+                             </li>
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="dnsmanage">
+                 <a href="#"><i class="fa fa-bandcamp fa-fw" aria-hidden="true"></i> <span class="nav-label">域名管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="domain"><a href="/bres/dnsmanage/domain/">域名解析</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="record_history"><a href="/bres/dnsmanage/record_history/">记录历史</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="deploy">
+                 <a href="#"><i class="fa fa-recycle fa-fw" aria-hidden="true"></i> <span class="nav-label">自动化部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/deployment/deploy/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/deployment/deploy/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/deployment/deploy/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="docker">
+                 <a href="#"><i class="fa fa-first-order fa-fw" aria-hidden="true"></i> <span class="nav-label">Docker部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/dockerdeploy/docker/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/dockerdeploy/docker/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/dockerdeploy/docker/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+  
+  
+ 
+ 
+ 
+          </ul>
+ 
+      </div>
+  </nav>
+
+
+        <div id="page-wrapper" class="gray-bg">
+            <div class="row border-bottom">
+                
+<nav class="navbar navbar-static-top  " role="navigation" style="margin-bottom: 0">
+        <div class="navbar-header">
+            <a class="navbar-minimalize minimalize-styl-2 btn btn-primary " href="#"><i class="fa fa-bars"></i> </a>
+        </div>
+
+
+            <ul class="nav navbar-top-links navbar-right">
+                <li>
+                    <span class="m-r-sm text-muted welcome-message ops_phone "  style="font-size:16px; color: red"></span>
+                </li>
+                <li>
+                    <a href="/logout/">
+                        <i class="fa fa-sign-out"></i> Log out
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+            </div>
+            
+<div class="row wrapper border-bottom white-bg page-heading">
+    <div class="col-lg-10">
+        <h2></h2>
+        <ol class="breadcrumb">
+            <li>
+                <a href="#">提交上线</a>
+            </li>
+            <li>
+                <a>提交配置</a>
+            </li>
+            <li class="active">
+                <strong></strong>
+            </li>
+        </ol>
+    </div>
+    <div class="col-lg-2">
+    </div>
+</div>
+
+
+
+
+<div class="row">
+	<div class="col-lg-12">
+	    <div class="ibox float-e-margins">
+	        <div class="ibox-content">
+<div class="box" style="height: auto">
+    <div class="row">
+        <div class="pull-midlle">
+              <form class="navbar-form search-form" method="get">
+                <div class="form-group">
+                    <select type="text" class="form-control" name="env" onchange="this.form.submit()">
+                        <option value="">请先选择环境</option>
+                        
+                            <option value="1" selected="selected">测试环境</option>
+                        
+                            <option value="2" >正式环境</option>
+                        
+                            <option value="4" >预发布环境</option>
+                        
+                            <option value="7" >开发环境</option>
+                        
+                            <option value="8" >测试环境2</option>
+                        
+                            <option value="9" >UAT环境</option>
+                        
+                            <option value="11" >测试环境3</option>
+                        
+                            <option value="15" >香港adx</option>
+                        
+                            <option value="16" >sdkadx</option>
+                        
+                            <option value="17" >us-gke</option>
+                        
+                            <option value="18" >us-east</option>
+                        
+                            <option value="19" >gz-tke</option>
+                        
+                            <option value="20" >us-east-tke</option>
+                        
+                            <option value="21" >hk-tke</option>
+                        
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </select>
+                </div>
+              </form>
+        </div>
+    </div>
+    
+        
+            
+                <div class="widget-box transparent">
+                    <div class="widget-header">
+
+                        <hr style="height:1px;border:none;border-top:1px double green;" />
+                        <div class="widget-toolbar no-border"><a href="javascript:;" data-action="collapse">
+                                <i class="icon-chevron-up"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="widget-body">
+                        <div class="widget-main padding-6 no-padding-left no-padding-right">
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/164/"> zhizh-h5（k8s_nginxconf）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1267/"> apk-website（hk_k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1415/"> test-vidfeedly-com（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1432/"> zz-cy-iptv（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1452/"> test-dramabite-vip（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1375/"> djs-bc-iap（k8s_spring boot）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1499/"> zz-cy-iptv-admin（tke_nginxconf）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1500/"> primeshort-com（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1501/"> northstart-next-website（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1536/"> sportsflux-pro（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1522/"> zz-cy-league（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1561/"> matchprime-live（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1573/"> xuanjie-admin（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1550/"> sportsflux-fun（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1426/"> djs-bc-iptv（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1614/"> goalrelay-fun（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1619/"> djs-bc-iptv-message（tke_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1633/"> iptv-service（tke_spring boot）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1636/"> dramafinds-com（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1642/"> dramawhim-com（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1644/"> dramashortstv-com（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1650/"> djs-bc-iap-backend（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1659/"> deep-drama-h5（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/419/"> cncp-game-platform（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1289/"> cwm-firebase（hk_k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1534/"> djs-player-front（tke_nginxconf）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1540/"> djs-points-wall（tke_node）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1532/"> djs-player（tke_spring boot）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1224/"> novabid-dsp（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/441/"> cwm-manage-h5（k8s_nginxconf）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1596/"> djs-bc-iptv-admin（tke_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1598/"> hwcp-gateway-api（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/252/"> game-platform（k8s_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1559/"> bi-project-vue-node（tke_node）</a>
+                                
+                            
+                                
+                                    <a  class="btn btn-inline btn-info" style="min-width:120px;margin:auto auto 20px 40px;" href="/dockerdeploy/docker/submit/1651/"> bora-novela-service（tke_spring boot）</a>
+                                
+                            
+                                
+                            
+                                
+                            
+                        </div>
+                    </div>
+                </div>
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+            
+        
+    
+</div>
+
+            <div class="footer fixed">
+                <div class="pull-right">
+                    <!-- 10GB of <strong>250GB</strong> Free. -->
+                </div>
+                <div>
+                    <strong>Copyright</strong>©2018-2026 Batmobi. All Rights Reserved
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+    <!-- Mainly scripts -->
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/metisMenu/jquery.metisMenu.js"></script>
+
+<!-- <script src="/static/js/plugins/slimscroll/jquery.slimscroll.min.js"></script> 
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script> 
+<script src="/static/js/bootstrap-dialog.js"></script> 
+<script src="/static/js/mindmup-editabletable.js"></script> 
+<script src="/static/js/plugins/fullcalendar/moment.min.js"></script>
+ <script src="/static/js/plugins/fullcalendar/fullcalendar.min.js"></script>   -->
+
+<!-- Custom and plugin javascript -->
+ <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/inspinia.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/pace/pace.min.js"></script> 
+
+
+
+<!-- Peity -->
+<!-- <script src="/static/js/plugins/peity/jquery.peity.min.js"></script> -->
+<!-- Peity -->
+<!-- <script src="/static/js/demo/peity-demo.js"></script> -->
+
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows layer-->
+<!-- <script src="/static/js/layer/layer.min.js"></script> -->
+
+
+
+
+
+
+<!-- active menu -->
+<script>
+
+    var str = document.location.pathname.split("/")[1];
+    var str1 = document.location.pathname.split("/")[2];
+    var str2 = document.location.pathname.split("/")[3];
+    var str3 = document.location.pathname.split("/")[4];
+
+    function GetQueryString(name)
+    {
+         var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)");
+         var r = window.location.search.substr(1).match(reg);
+         if(r!=null)return  unescape(r[2]); return null;
+    }
+
+
+
+    if(str1.length > 0){
+       project_class = GetQueryString("project_class");
+       // project = GetQueryString("project");
+       $("."+str1).addClass('active');
+       if (str2.length > 0) {
+            $("."+str2).addClass('active');
+       };
+       if (str3.length > 0) {
+            $("."+str3).addClass('active');
+       };       
+       $("."+project_class).addClass('active');
+       // $("."+project).addClass('active');
+
+    }
+    // else if(str2.length > 0){
+    //     $("."+str2).addClass('active');
+    // }else{
+    //     $("."+str).addClass('active');
+    // }
+
+</script>
+
+
+</html>
+

@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests" /> -->
+    <title>运维管理平台</title>
+
+    <link rel="shortcut icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/font-awesome-4.7.0/css/font-awesome.css" rel="stylesheet">
+<!-- <link href="/static/css/plugins/iCheck/custom.css" rel="stylesheet">
+<link href="/static/css/animate.css" rel="stylesheet"> -->
+<link href="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/css/style.css" rel="stylesheet">
+<!-- <link href="/static/css/colorbox.css" rel="stylesheet">
+<link href="/static/css/vaildator/jquery.validator.css" rel="stylesheet">
+<link href="/static/css/magnific/magnific-popup.css" rel="stylesheet">
+<link href="/static/css/plugins/fullcalendar/fullcalendar.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/basic.css" rel="stylesheet">
+<link href="/static/css/plugins/dropzone/dropzone.css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.css"/> -->
+
+
+    <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/jquery-3.3.1.min.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/bootstrap.min.js"></script>
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows -->
+<!-- <script src="/static/js/jquery.colorbox.js"></script> -->
+
+<!-- validator js -->
+<!-- <script src="/static/js/validator/jquery.validator.js"></script>
+<script src="/static/js/validator/zh_CN.js"></script>
+<script src="/static/js/Chart.js"></script>
+<script src="/static/js/plugins/nestable/jquery.nestable.js"></script>
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script>
+
+<script src="/static/jq22.com-datetimepicker-master/jquery.datetimepicker.js"></script> -->
+<!-- <script src="/static/js/plugins/gameinfo/gameinfo.js"></script> -->
+
+
+
+
+</head>
+
+<body>
+
+
+    <div id="wrapper">
+          <nav class="navbar-default navbar-static-side" role="navigation">
+      <div class="sidebar-collapse">
+          <ul class="nav metismenu " id="side-menu">
+              <li class="nav-header">
+    <div class="dropdown profile-element">
+        <span>
+            
+                <img alt="image" class="img-circle" width="48" height="48" src="/static/img/0QlVGwAAAAGSURBVAMAW4rma5SIkSEAAAAASUVORK5CYII=_hehaocheng.png" />
+            
+        </span>
+        <a data-toggle="dropdown" class="dropdown-toggle" href="#">
+            <span class="clear">
+                <span class="block m-t-xs">
+                    <strong class="font-bold">贺浩成  <span style="color: #8095a8"></span></strong>
+                </span>
+                <span class="text-muted text-xs block">
+                     个人信息<b class="caret"></b>
+                </span>
+            </span>
+        </a>
+        <ul class="dropdown-menu animated fadeInRight m-t-xs">
+            <li><a href="/cmdb/userinfo/" >查看账号</a></li>
+            <li class="divider"></li>
+            <li><a href="/logout/">注销</a></li>
+        </ul>
+    </div>
+
+    <div class="logo-element">
+        OPS
+    </div>
+</li>
+
+                      <li>
+                          <a href="/index/"><i class="fa fa-th-large fa-fw"></i> <span class="nav-label">主面板</span></a>
+                      </li>
+ 
+ 
+ 
+ 
+ 
+     
+         
+             <li class="server_manage">
+                 <a href="#"><i class="fa fa-cloud fa-fw" aria-hidden="true"></i> <span class="nav-label">基础资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="all_server"><a href="/cmdb/server_manage/all_server/">查看服务器</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="projectmanage">
+                 <a href="#"><i class="fa fa-product-hunt fa-fw" aria-hidden="true"></i> <span class="nav-label">项目管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="kanban"><a href="/bres/projectmanage/kanban/">迭代看板</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="sky">
+                 <a href="#"><i class="fa fa-skype fa-fw" aria-hidden="true"></i> <span class="nav-label">链路追踪</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="nodes"><a href="/skywalk/sky/nodes/">资源节点</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="services"><a href="/skywalk/sky/services/">服务列表</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="app">
+                 <a href="#"><i class="fa fa-cubes fa-fw" aria-hidden="true"></i> <span class="nav-label">服务资源</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="db">
+                                     <a href="#">Mysql管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="instance"><a href="/dbmanage/app/db/instance/">实例管理</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="redis">
+                                     <a href="#">Redis管理<span class="fa arrow"></span></a>
+                                         <ul class="nav nav-third-level collapse">
+                                             
+                                                <li class="redisList"><a href="/dbmanage/app/redis/redisList/">redis列表</a></li>
+                                             
+                                         </ul>
+                                 </li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="workline_manage">
+                 <a href="#"><i class="fa fa-retweet fa-fw" aria-hidden="true"></i> <span class="nav-label">监控管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             <li class="urlorder">
+                                 <a href="#">URL告警<span class="fa arrow"></span></a>                        
+                                     <ul class="nav nav-third-level collapse">
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                              
+                                                  
+                                              
+                                          
+                                     </ul>
+                             </li>
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="dnsmanage">
+                 <a href="#"><i class="fa fa-bandcamp fa-fw" aria-hidden="true"></i> <span class="nav-label">域名管理</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="domain"><a href="/bres/dnsmanage/domain/">域名解析</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="record_history"><a href="/bres/dnsmanage/record_history/">记录历史</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="deploy">
+                 <a href="#"><i class="fa fa-recycle fa-fw" aria-hidden="true"></i> <span class="nav-label">自动化部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/deployment/deploy/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/deployment/deploy/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/deployment/deploy/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+         
+             <li class="docker">
+                 <a href="#"><i class="fa fa-first-order fa-fw" aria-hidden="true"></i> <span class="nav-label">Docker部署</span><span class="fa arrow"></span></a>
+                 <ul class="nav nav-second-level collapse">
+                     
+                         
+                             
+                                 <li class="submit"><a href="/dockerdeploy/docker/submit/">提交上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="task"><a href="/dockerdeploy/docker/task/">我的上线</a></li>
+                             
+                         
+                     
+                         
+                             
+                                 <li class="tasks_log"><a href="/dockerdeploy/docker/tasks_log/">上线日志</a></li>
+                             
+                         
+                     
+                 </ul>
+             </li>
+         
+ 
+ 
+     
+  
+  
+ 
+ 
+ 
+          </ul>
+ 
+      </div>
+  </nav>
+
+
+        <div id="page-wrapper" class="gray-bg">
+            <div class="row border-bottom">
+                
+<nav class="navbar navbar-static-top  " role="navigation" style="margin-bottom: 0">
+        <div class="navbar-header">
+            <a class="navbar-minimalize minimalize-styl-2 btn btn-primary " href="#"><i class="fa fa-bars"></i> </a>
+        </div>
+
+
+            <ul class="nav navbar-top-links navbar-right">
+                <li>
+                    <span class="m-r-sm text-muted welcome-message ops_phone "  style="font-size:16px; color: red"></span>
+                </li>
+                <li>
+                    <a href="/logout/">
+                        <i class="fa fa-sign-out"></i> Log out
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+            </div>
+            
+<div class="row wrapper border-bottom white-bg page-heading">
+    <div class="col-lg-10">
+        <h2></h2>
+        <ol class="breadcrumb">
+            <li>
+                <a href="#">我的上线</a>
+            </li>
+            <li>
+                <a>上线列表</a>
+            </li>
+            <li class="active">
+                <strong></strong>
+            </li>
+        </ol>
+    </div>
+    <div class="col-lg-2">
+    </div>
+</div>
+
+
+
+
+
+<link href="/static/css/plugins/dataTables/dataTables.bootstrap.css" rel="stylesheet">
+<link href="/static/css/plugins/dataTables/dataTables.responsive.css" rel="stylesheet">
+<link href="/static/css/plugins/dataTables/dataTables.tableTools.min.css" rel="stylesheet">
+<style type="text/css">
+.search-form button[type="submit"] {
+    background: none;
+    border: none;
+    margin-left: -2.5em;
+    margin-bottom: 0em;
+    color: #aaa;
+}
+
+  pre { 
+      border-bottom: #2f6fab 1px dashed;
+      border-left: #2f6fab 1px dashed;
+      padding-bottom: 1em;
+      line-height: 1.1em;
+      background-color: #262626;
+      padding-left: 1em;
+      padding-right: 1em;
+      color: white;
+      border-top: #2f6fab 1px dashed;
+      border-right: #2f6fab 1px dashed;
+      padding-top: 1em;
+      height: 700px;
+  }
+</style>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="ibox float-e-margins">
+            <div class="ibox-content">
+                <div class="row">
+                    <div class="columns">
+                        <div class="pull-right">
+                              <form class="navbar-form search-form" method="get">
+                                <div class="form-group">
+                                    <select type="text" class="form-control" name="env" onchange="this.form.submit()">
+                                        <option value="0" >按环境筛选</option>
+                                    
+                        
+                            <option value="1" >测试环境</option>
+                        
+                            <option value="2" >正式环境</option>
+                        
+                            <option value="4" >预发布环境</option>
+                        
+                            <option value="7" >开发环境</option>
+                        
+                            <option value="8" >测试环境2</option>
+                        
+                            <option value="9" >UAT环境</option>
+                        
+                            <option value="11" >测试环境3</option>
+                        
+                            <option value="15" >香港adx</option>
+                        
+                            <option value="16" >sdkadx</option>
+                        
+                            <option value="17" >us-gke</option>
+                        
+                            <option value="18" >us-east</option>
+                        
+                            <option value="19" >gz-tke</option>
+                        
+                            <option value="20" >us-east-tke</option>
+                        
+                            <option value="21" >hk-tke</option>
+                        
+
+
+
+
+
+
+
+
+
+
+
+
+                                    </select>
+                                    <input type="text" class="form-control" name="search" value="" placeholder="搜索">
+                                </div>
+                                  <button type="submit" class="btn btn-default"><span class="glyphicon glyphicon-search"></span></button>
+                              </form>
+                        </div>
+                    </div>
+                </div>
+                 <div class="">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-bordered table-hover " id="editable" name="editable" style="width:100%" >
+                                    <thead>
+                                        <tr>
+                                          <th width="10%" class="text-center">标题</th>
+                                          <th class="text-center">项目/域名</th>
+                                          <th class="text-center">环境</th>
+                                          <th class="text-center">部署集群</th>
+                                          <th class="text-center">发布类型</th>
+                                          <th class="text-center">branch/tag</th>
+                                          <th class="text-center">发布版本</th>
+                                          <th class="text-center">上线状态</th>
+                                          <th class="text-center">构建状态</th>
+                                          <th class="text-center">提交时间</th>
+                                          <th class="text-center">提交人员</th>
+                                          <th class="text-center">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148575">Merge branch &#39;feature/2.3.3&#39; into feature/tazven.com</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148575">tazven-com</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148575">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148575">
+                                                
+                                                  feature/tazven.com
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148575">4e6caf883cac1ff90d015b1d332fdd0ee739276a</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-tazven-com.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:24</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148575')" href="/dockerdeploy/docker/task/148575/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148575')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-tazven-com,type:phrase),type:phrase,value:production-tazven-com),query:(match:(k8s_container_name.keyword:(query:production-tazven-com,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148573">Merge branch &#39;feature/2.3.3&#39; into feature/sportsflux.fun</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148573">sportsflux-fun</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148573">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148573">
+                                                
+                                                  feature/sportsflux.fun
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148573">012a472aee054474c7fc59239ea86f0ba4bb5841</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-sportsflux-fun.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:23</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148573')" href="/dockerdeploy/docker/task/148573/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148573')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-sportsflux-fun,type:phrase),type:phrase,value:production-sportsflux-fun),query:(match:(k8s_container_name.keyword:(query:production-sportsflux-fun,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148577">Merge branch &#39;feature/2.3.3&#39; into release/goalrelay.fun</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148577">goalrelay-fun</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148577">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148577">
+                                                
+                                                  release/goalrelay.fun
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148577">b698bd81483a1dd9e5f2d2bc242eacb8c6bf254b</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-goalrelay-fun.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:21</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148577')" href="/dockerdeploy/docker/task/148577/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148577')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-goalrelay-fun,type:phrase),type:phrase,value:production-goalrelay-fun),query:(match:(k8s_container_name.keyword:(query:production-goalrelay-fun,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148572">Merge branch &#39;feature/2.3.3&#39; into feature/livearenao.com</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148572">livearenao-com</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148572">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148572">
+                                                
+                                                  feature/livearenao.com
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148572">ad68c4adc2a8a229cb01bea36f6a0aad3d996a66</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-livearenao-com.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:19</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148572')" href="/dockerdeploy/docker/task/148572/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148572')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-livearenao-com,type:phrase),type:phrase,value:production-livearenao-com),query:(match:(k8s_container_name.keyword:(query:production-livearenao-com,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148576">Merge branch &#39;feature/2.3.3&#39; into feature/nazztv.com</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148576">nazztv-com</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148576">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148576">
+                                                
+                                                  feature/nazztv.com
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148576">a08e2e371a6137567ac50c47a47375658c8cb873</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-nazztv-com.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:19</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148576')" href="/dockerdeploy/docker/task/148576/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148576')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-nazztv-com,type:phrase),type:phrase,value:production-nazztv-com),query:(match:(k8s_container_name.keyword:(query:production-nazztv-com,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148574">Merge branch &#39;feature/2.3.3&#39; into feature/sportsflux.pro</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148574">sportsflux-pro</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148574">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148574">
+                                                
+                                                  feature/sportsflux.pro
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148574">2000ff5d5f2a8b93606c4511badd4e2201ba8487</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-sportsflux-pro.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:16</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148574')" href="/dockerdeploy/docker/task/148574/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148574')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-sportsflux-pro,type:phrase),type:phrase,value:production-sportsflux-pro),query:(match:(k8s_container_name.keyword:(query:production-sportsflux-pro,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148570">Merge branch &#39;feature/2.3.3&#39; into feature/goalrelay.com</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148570">goalrelay-com</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148570">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148570">
+                                                
+                                                  feature/goalrelay.com
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148570">b89b87669d5b45181a1f4787a7a914440ddb5186</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-goalrelay-com.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:13</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148570')" href="/dockerdeploy/docker/task/148570/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148570')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-goalrelay-com,type:phrase),type:phrase,value:production-goalrelay-com),query:(match:(k8s_container_name.keyword:(query:production-goalrelay-com,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148571">Merge branch &#39;feature/2.3.3&#39; into feature/matchprime... </td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148571">matchprime-live</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148571">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148571">
+                                                
+                                                  feature/matchprime.live
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148571">335a8e3b03d8a0d63117755e027151972aaebf59</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-matchprime-live.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:08</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148571')" href="/dockerdeploy/docker/task/148571/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148571')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-matchprime-live,type:phrase),type:phrase,value:production-matchprime-live),query:(match:(k8s_container_name.keyword:(query:production-matchprime-live,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148569">fix: TT/FB 上报时剥离 URL 上的 token 参数</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148569">sportsflux-live</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148569">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148569">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148569">dbd0ba0d3509ac5a0f74656e832a437c0309d1ca</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-sportsflux-live.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 16:01:05</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148569')" href="/dockerdeploy/docker/task/148569/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148569')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-sportsflux-live,type:phrase),type:phrase,value:production-sportsflux-live),query:(match:(k8s_container_name.keyword:(query:production-sportsflux-live,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148566">Merge branch &#39;fix/fb_20261013&#39;</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148566">djs-bc-iptv</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148566">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148566">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148566">e095959041f4abbb14789c210fb2305da2752d9f</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-djs-bc-iptv.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 15:39:56</td>
+                                              <td class="text-center" data-editable='false'>魏志聪</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148566')" href="/dockerdeploy/docker/task/148566/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148566')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-djs-bc-iptv,type:phrase),type:phrase,value:production-djs-bc-iptv),query:(match:(k8s_container_name.keyword:(query:production-djs-bc-iptv,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148565">fix: TT/FB 上报时剥离 URL 上的 token 参数</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148565">zz-cy-league</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148565">测试环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148565">
+                                                
+                                                  feature/2.3.3
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148565">dbd0ba0d3509ac5a0f74656e832a437c0309d1ca</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-zz-cy-league.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 15:36:50</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148565')" href="/dockerdeploy/docker/task/148565/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148565')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-zz-cy-league,type:phrase),type:phrase,value:testing-zz-cy-league),query:(match:(k8s_container_name.keyword:(query:testing-zz-cy-league,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148562">docs: 迁移方案记录分支名改为 feature/xgplayer</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148562">dramafinds-com</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148562">测试环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148562">
+                                                
+                                                  feature/xgplayer
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148562">9703060ce9a61f8cee59d22551e3ec5417fc12fa</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-dramafinds-com.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 15:23:57</td>
+                                              <td class="text-center" data-editable='false'>贺浩成</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148562')" href="/dockerdeploy/docker/task/148562/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148562')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-dramafinds-com,type:phrase),type:phrase,value:testing-dramafinds-com),query:(match:(k8s_container_name.keyword:(query:testing-dramafinds-com,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148558">Merge branch &#39;master&#39; into feature/cps-test</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148558">djs-bc-iap</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+                                                      <a target="_blank" href="http://testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check">testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check</a>
+                                                      <br>
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148558">测试环境</td>
+                                              <td class="text-center" data-editable='false' >k8s</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148558">
+                                                
+                                                  feature/cps-test
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148558">b3bc1d6d4253ce8e77a32d27f50f0581cf761e81</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://192.168.0.140:8080/job/testing_djs-bc-iap_k8s_springboot/625/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 14:58:40</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148558')" href="/dockerdeploy/docker/task/148558/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148558')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-djs-bc-iap,type:phrase),type:phrase,value:testing-djs-bc-iap),query:(match:(k8s_container_name.keyword:(query:testing-djs-bc-iap,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148557">Merge branch &#39;fix/fb_20261013&#39; into feature/test</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148557">djs-bc-iptv</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+                                                      <a target="_blank" href="http://testing-djs-bc-iptv.testing.svc.gzk8s.zhizh.com/check">testing-djs-bc-iptv.testing.svc.gzk8s.zhizh.com/check</a>
+                                                      <br>
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148557">测试环境</td>
+                                              <td class="text-center" data-editable='false' >k8s</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148557">
+                                                
+                                                  feature/test
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148557">be1c6cf8fc9a5c28d449db5f419d056875ef6c13</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-djs-bc-iptv.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://192.168.0.140:8080/job/testing_djs-bc-iptv_k8s_springboot/1006/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 14:57:56</td>
+                                              <td class="text-center" data-editable='false'>魏志聪</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148557')" href="/dockerdeploy/docker/task/148557/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148557')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-djs-bc-iptv,type:phrase),type:phrase,value:testing-djs-bc-iptv),query:(match:(k8s_container_name.keyword:(query:testing-djs-bc-iptv,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148556">chore: block search crawling of RSC URLs</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148556">zz-jc-iptv-website</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148556">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148556">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148556">62aba44826f6543c1bbaa25f239923a71cdacd28</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-zz-jc-iptv-website.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 14:46:41</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148556')" href="/dockerdeploy/docker/task/148556/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148556')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-zz-jc-iptv-website,type:phrase),type:phrase,value:production-zz-jc-iptv-website),query:(match:(k8s_container_name.keyword:(query:production-zz-jc-iptv-website,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148553">feat: 公共请求头新增 origin-site-id 上报来源站域名</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148553">zz-cy-league</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148553">测试环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >node</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148553">
+                                                
+                                                  feature/2.3.3
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148553">09d3889e127fcc63681676fea0d2f856f3fc39bb</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-zz-cy-league.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 14:33:11</td>
+                                              <td class="text-center" data-editable='false'>徐静</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148553')" href="/dockerdeploy/docker/task/148553/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148553')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-zz-cy-league,type:phrase),type:phrase,value:testing-zz-cy-league),query:(match:(k8s_container_name.keyword:(query:testing-zz-cy-league,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148554">Merge branch &#39;feature/xw-r&#39;</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148554">djs-bc-iptv</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148554">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148554">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148554">c0827ad7a23e928b1689e76a4a96da3c823db3ec</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-djs-bc-iptv.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 14:29:11</td>
+                                              <td class="text-center" data-editable='false'>肖威</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148554')" href="/dockerdeploy/docker/task/148554/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148554')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-djs-bc-iptv,type:phrase),type:phrase,value:production-djs-bc-iptv),query:(match:(k8s_container_name.keyword:(query:production-djs-bc-iptv,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148530">feat:其他第三方来源</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148530">djs-bc-iap</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148530">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148530">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148530">b562082268feabe73bac377bd8b078a33c733765</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-djs-bc-iap.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 10:58:41</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148530')" href="/dockerdeploy/docker/task/148530/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148530')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-djs-bc-iap,type:phrase),type:phrase,value:production-djs-bc-iap),query:(match:(k8s_container_name.keyword:(query:production-djs-bc-iap,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148527">Merge branch &#39;master&#39; into feature/cps-test</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148527">djs-bc-iap</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+                                                      <a target="_blank" href="http://testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check">testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check</a>
+                                                      <br>
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148527">测试环境</td>
+                                              <td class="text-center" data-editable='false' >k8s</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148527">
+                                                
+                                                  feature/cps-test
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148527">1a9cf4a20ad518b7004ebdcce3722e65f47bd536</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://testing-djs-bc-iap.testing.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="http://192.168.0.140:8080/job/testing_djs-bc-iap_k8s_springboot/624/">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 10:42:59</td>
+                                              <td class="text-center" data-editable='false'>鲁佩</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148527')" href="/dockerdeploy/docker/task/148527/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148527')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:testing-djs-bc-iap,type:phrase),type:phrase,value:testing-djs-bc-iap),query:(match:(k8s_container_name.keyword:(query:testing-djs-bc-iap,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                            <tr>
+                                              <td class="text-center" data-editable='false' id="title_148521">feat(live): Bunny token 过期时刻对齐开赛档位，播放路径跨请求稳定</td>
+                                              <td class="text-center" data-editable='false'>
+                                                  <span id="project_148521">djs-bc-iptv</span>
+                                                  <br>
+                                                  k8s服务域名:
+                                                  
+
+                                                  
+
+                                                  
+
+                                                   
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="env_148521">正式环境</td>
+                                              <td class="text-center" data-editable='false' >tke</td>
+                                              <td class="text-center" data-editable='false' >spring boot</td>
+                                              <td class="text-center" data-editable='false' id="branchtag_148521">
+                                                
+                                                  master
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' id="version_148521">f6b6083a16476be6b9c662d2ebd390a6c8dfdb66</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                 <a class='label label-primary' target="_blank" href="http://production-djs-bc-iptv.production.svc.gzk8s.zhizh.com/check">上线成功
+                                                
+                                                
+                                              </td>
+                                              <td class="text-center" data-editable='false' >
+                                                  
+                                                  
+                                                  
+                                                  
+                                                    <a class='label label-primary' target="_blank" href="None">构建成功</a>
+                                                   
+                                                                                                     
+                                              </td>
+                                              <td class="text-center" data-editable='false'>2026-10-13 10:14:42</td>
+                                              <td class="text-center" data-editable='false'>魏志聪</td>
+                                              <td class="text-center" data-editable='false'>
+                                                
+                                                
+                                                    
+                                                      
+                                                        <a  onclick="return is_roll('148521')" href="/dockerdeploy/docker/task/148521/roll/" class="btn btn-blue btn-sm btn-xs" style="color: red"><i class="fa fa-reply"></i> 回滚</a>
+                                                      
+                                                     
+                                                
+                                                
+                                                
+                                                  <a data-toggle="modal" data-target="#get_build_log" class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" onclick="BuildLogbutton('148521')"><i class="fa fa-commenting-o"></i> BuildLog</a>
+                                                  <a class="btn btn-blue btn-sm btn-xs" style="color: #2c3e50" href="http://kibana.gz.batmobi.cn:5601/app/kibana#/discover?_g=(refreshInterval:(pause:!t,value:0),time:(from:now-15m,mode:quick,to:now))&amp;_a=(columns:!(message,k8s_container_name),filters:!((&#39;$state&#39;:(store:appState),meta:(alias:!n,disabled:!f,index:&#39;1c197a50-c888-11e9-95b5-d764613b260a&#39;,key:k8s_container_name.keyword,negate:!f,params:(query:production-djs-bc-iptv,type:phrase),type:phrase,value:production-djs-bc-iptv),query:(match:(k8s_container_name.keyword:(query:production-djs-bc-iptv,type:phrase))))),index:f71ea680-ca7b-11e9-8726-e7e3b109740c,interval:auto,query:(language:lucene,query:&#39;&#39;),sort:!(&#39;@timestamp&#39;,desc))"   target="_blank"><i class="fa fa-commenting"></i> AppLog</a>
+                                              </td>
+                                            </tr> 
+                       
+                                      
+                                   </tbody>
+                                </table>
+                                <nav aria-label="Page navigation" class="text-center"><ul class="pagination"><li><a href="/dockerdeploy/docker/task/?page=1&search=">首页</a></li><li class="disabled"><a href="#" aria-label="Previous"><span aria-hidden="true">&laquo;</span></a></li><li class="active"><a href="/dockerdeploy/docker/task/?page=1&search=">1</a></li><li><a href="/dockerdeploy/docker/task/?page=2&search=">2</a></li><li><a href="/dockerdeploy/docker/task/?page=3&search=">3</a></li><li><a href="/dockerdeploy/docker/task/?page=4&search=">4</a></li><li><a href="/dockerdeploy/docker/task/?page=5&search=">5</a></li><li><a href="/dockerdeploy/docker/task/?page=2&search=" aria-label="Previous"><span aria-hidden="true">&raquo;</span></a></li><li><a href="/dockerdeploy/docker/task/?page=497&search=">尾页</a></li></ul></nav>
+                            </div>  
+             
+                        </div>  
+             </div>
+        </div>
+    </div>
+</div>                   
+
+
+<div class="modal fade" id="get_build_log" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="exampleModalLabel" align="center">构建日志</h4></div>
+      <div class="modal-body">
+        <pre id="build_log">
+          
+        </pre>
+      </div>
+  </div>
+</div>
+
+<script src="/static/js/plugins/dataTables/jquery.dataTables.js"></script>
+<script src="/static/js/plugins/dataTables/dataTables.bootstrap.js"></script>
+<script src="/static/js/plugins/dataTables/dataTables.responsive.js"></script>
+<script src="/static/js/plugins/dataTables/dataTables.tableTools.min.js"></script>
+
+<script>
+  var websock_url = 'wss://itsm.zhizhengroup.com/wssapp/'
+  var session_key = '00vvcgc86pmyizqtmt0fr2to0zqj1lij'
+  var sock_conn_log = new Object();
+</script>
+<script src="/static/js/myjs/build_log.js"></script>
+<script type="text/javascript">
+
+    function myRefresh() {
+       window.location.reload();
+    }
+
+    $(document).ready(function(){
+      var arrayObj = new Array();
+        
+        $( ".pending" ).each(function( index ) {
+            id = $(this).attr("value").split(",")[0]
+            status = $(this).attr("value").split(",")[1]
+            if (status == -1){
+              arrayObj.push(id)
+            }
+        });
+
+        $( ".build" ).each(function( index ) {
+            id = $(this).attr("value").split(",")[0]
+            status = $(this).attr("value").split(",")[1]
+            if (status == 0){
+              arrayObj.push(id)
+            }
+        });
+
+        if (arrayObj.length != 0) {
+            openConnection(arrayObj);
+        } else {
+            // 如果没有websocket连接，则自动刷新
+            // 指定5秒刷新一次
+            setTimeout('myRefresh()', 60000);
+        }
+    });
+
+    function openConnection(arr) {
+      conn = new WebSocket('wss://itsm.zhizhengroup.com/wssapp/');
+      conn.onopen = function () {
+        var data_arr = {"sock_type":"docker_jenkins_build_sock","session_key":"00vvcgc86pmyizqtmt0fr2to0zqj1lij","IdList":arr}
+        var e = JSON.stringify(data_arr)
+        conn.send(e);
+      };
+      conn.onmessage = function (event) {
+        data = $.parseJSON(event.data);
+        var code = data["code"]
+
+        if (code == 0) {
+            var msg = data["msg"]
+            conn.close();
+            window.location.reload()
+        }else if(code == 1){
+          window.location.reload()
+        }else{
+          console.log(data["temp"])
+        }
+
+    }
+
+      conn.onclose = function (event) {
+          conn.close();
+      };
+    }
+
+
+
+
+
+    function is_up(id){
+
+        title = $("#title_"+id).html()
+        project = $("#project_"+id).html()
+        env = $("#env_"+id).html()
+        version = $("#version_"+id).html()
+        return  confirm("标题： " + title +"\n项目： "+ project +"\n环境： "+ env +"\n版本： "+version +"\n\n确定是否上线？");
+
+      }
+
+
+
+    function is_roll(id){
+      title = $("#title_"+id).html()
+      project = $("#project_"+id).html()
+      env = $("#env_"+id).html()
+      version = $("#version_"+id).html()
+      return  confirm("标题： " + title +"\n项目： "+ project +"\n环境： "+ env +"\n版本： "+version +"\n\n确定是否回滚？");
+    }
+
+
+    function is_del(id){
+      title = $("#title_"+id).html()
+      return  confirm("标题： " + title +"\n\n确定是否删除？");
+    }
+
+
+  function BuildLogbutton(id){
+      submittype = "dockerdelpoy";
+      $("#build_log").empty();
+      $("#build_log").html('<i class="fa fa-refresh fa-spin"></i> 日志获取中..');
+      buildlogopenConnection(submittype,id);
+  }
+
+  $('#get_build_log').on('hide.bs.modal', function () {
+    $("#build_log").empty();
+    sock_conn_log.close()
+    window.location.reload()
+  })
+
+
+
+
+</script>
+
+
+            <div class="footer fixed">
+                <div class="pull-right">
+                    <!-- 10GB of <strong>250GB</strong> Free. -->
+                </div>
+                <div>
+                    <strong>Copyright</strong>©2018-2026 Batmobi. All Rights Reserved
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+    <!-- Mainly scripts -->
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/metisMenu/jquery.metisMenu.js"></script>
+
+<!-- <script src="/static/js/plugins/slimscroll/jquery.slimscroll.min.js"></script> 
+<script src="/static/js/plugins/sparkline/jquery.sparkline.min.js"></script> 
+<script src="/static/js/bootstrap-dialog.js"></script> 
+<script src="/static/js/mindmup-editabletable.js"></script> 
+<script src="/static/js/plugins/fullcalendar/moment.min.js"></script>
+ <script src="/static/js/plugins/fullcalendar/fullcalendar.min.js"></script>   -->
+
+<!-- Custom and plugin javascript -->
+ <script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/inspinia.js"></script>
+<script src="https://itsm-static.oss-cn-shenzhen.aliyuncs.com/static/js/plugins/pace/pace.min.js"></script> 
+
+
+
+<!-- Peity -->
+<!-- <script src="/static/js/plugins/peity/jquery.peity.min.js"></script> -->
+<!-- Peity -->
+<!-- <script src="/static/js/demo/peity-demo.js"></script> -->
+
+<!-- <script src="/static/js/base.js"></script> -->
+
+<!-- pop windows layer-->
+<!-- <script src="/static/js/layer/layer.min.js"></script> -->
+
+
+
+
+
+
+<!-- active menu -->
+<script>
+
+    var str = document.location.pathname.split("/")[1];
+    var str1 = document.location.pathname.split("/")[2];
+    var str2 = document.location.pathname.split("/")[3];
+    var str3 = document.location.pathname.split("/")[4];
+
+    function GetQueryString(name)
+    {
+         var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)");
+         var r = window.location.search.substr(1).match(reg);
+         if(r!=null)return  unescape(r[2]); return null;
+    }
+
+
+
+    if(str1.length > 0){
+       project_class = GetQueryString("project_class");
+       // project = GetQueryString("project");
+       $("."+str1).addClass('active');
+       if (str2.length > 0) {
+            $("."+str2).addClass('active');
+       };
+       if (str3.length > 0) {
+            $("."+str3).addClass('active');
+       };       
+       $("."+project_class).addClass('active');
+       // $("."+project).addClass('active');
+
+    }
+    // else if(str2.length > 0){
+    //     $("."+str2).addClass('active');
+    // }else{
+    //     $("."+str).addClass('active');
+    // }
+
+</script>
+
+
+</html>
+
