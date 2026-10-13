@@ -3266,6 +3266,79 @@ git log --oneline | head -15
 
 ---
 
+---
+
+## 执行结果（2026-10-13 完成）
+
+| 验收项 | 结果 |
+|---|---|
+| Rust 测试 | ✅ 75 passed / 1 ignored（原 56 + favorites 18 + reorder 5，另有负向调整） |
+| 前端 Vitest | ✅ **127 passed**（11 个文件） |
+| `vue-tsc --noEmit` | ✅ 无类型错误 |
+| release 构建 | ✅ 通过（57.6s） |
+| parser 真实 fixture 测试 | ✅ 16 条，跑在真实 ITSM 页面上 |
+| 与插件功能对照 | ✅ 除「构建日志」外全部对齐（见下表） |
+| 新增能力 | ✅ 收藏拖动排序（插件没有） |
+
+### 执行中发现并修掉的问题
+
+**服务端行为类（只能靠真实环境发现）**
+
+1. **`devapi/projectcommit` 在项目不存在/git 异常时返回 `msg:"success"`，
+   却把中文警告塞进 `commitids`** → 插件会把它显示成一条假 commit。
+   判别规则：正常 commit 必含 `#-----#`，警告文本不含。已抓成 fixture 并加测试。
+2. **ITSM 不下发 `csrftoken` cookie，服务端未启用 CSRF 校验**
+   → 早期 Rust `require_csrf` 强制校验，导致点提交直接报「缺少 csrftoken」。
+   证据：登录前后 cookie 只有 sessionid；往 GET-only 视图发空 POST 得 500 而非 403
+   （Django 的 CSRF 失败一定 403）。诊断工具：`cargo run --example probe_cookies`。
+
+**架构/状态管理类（同一根因重复三次）**
+
+| # | 状态 | 错放在 | 表现 |
+|---|---|---|---|
+| 1 | baseUrl | auth + settings 两个 store | 登录页改了，设置页看不到 |
+| 2 | lastRefresh | 视图的 `doRefresh` | 轮询刷了，时间戳不动 |
+| 3 | 收藏列表 | 向导直接调 api，绕过 store | 保存成功，收藏页看不到 |
+
+共同点：**把"数据变更"放在调用点，而不是状态的持有者**。
+第 3 次之后加了防重犯约束：修根因 + 可见时重读兜底 +
+在 `api/favorites.ts` 顶部写明「视图不得直接调用本文件的写操作」。
+
+**交互/视觉类（只能靠看界面发现）**
+
+4. 任务列表不自动刷新 —— Task 5 把架构改成 v-show（保留标签状态），
+   使 `onMounted` 从"每次可见"退化成"仅一次"，而 Task 8 的代码仍假设前者。
+   改架构时没有回头检查依赖旧语义的代码。
+5. 浅色模式 `--deploy-surface-2`(0.975) 与 `bg`(0.98) 只差 0.005，
+   未选中按钮看着像裸文字。该 token 还驱动 shadcn 的 muted/accent，
+   属全局性缺陷。改为 0.94。
+6. 向导加了 `max-w-[860px]`，内容只占左半边。数据密集的控制台不该限宽
+   （环境 2 下有 2556 个项目）。改为按内容性质区分：向导/列表/收藏满宽，
+   设置页居中窄列。
+
+**开发体验类**
+
+7. **Pinia HMR 陷阱** —— setup 写法的 store 热更新后，
+   已创建的实例仍是旧定义（表现为 `tasks.refresh is not a function`）。
+   给全部 6 个 store 加了 `acceptHMRUpdate`。
+8. 计划里的测试单位错误：`startPolling` 参数是秒，测试写成 `startPolling(1000)`。
+   同批发现一条**假通过**的测试（只断言 `offline===false`，
+   在"根本没发请求"时也成立），已补调用次数断言。
+
+### 交付物
+
+```
+src/api/       parser.ts(原样搬) deploy.ts favorites.ts http.ts errors.ts ipc.ts
+               __fixtures__/  744K 真实 ITSM HTML/JSON 快照
+src/stores/    tasks / favorites / tabs / auth / theme / settings（均含单测）
+src/views/     DeployWizard / TaskListView / FavoritesView / SettingsView / LoginView
+src/components/ TabHost / layout(4) / deploy / common(StatusBadge, ConfirmDialog) / ui(9)
+src-tauri/     net(client/csrf/redirect/relogin/command) session secure commands(auth/config/favorites)
+               examples/capture_fixtures.rs  probe_cookies.rs
+```
+
+**下一计划：** Plan 3（P4 构建日志）——Rust WebSocket + 日志标签页 + ANSI + 进度行原地更新。
+
 ## Plan 2 完成标准
 
 - [ ] 前端测试全绿（含 parser 的 fixture 快照测试）
