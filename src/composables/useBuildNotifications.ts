@@ -73,8 +73,14 @@ export function useBuildNotifications() {
     })();
   }
 
-  /** 触发点 1：日志流结束 */
+  /**
+   * 触发点 1：日志流结束。
+   *
+   * 必须限定"轮询曾看到它在构建中"：回看一条历史日志时，服务端会把旧日志
+   * 重放一遍并同样发 code=1，那不是一次构建完成，不该弹通知。
+   */
   function onLogFinished(taskId: number): void {
+    if (!wasBuilding(lastSeen.get(taskId) ?? "")) return;
     const t = tasks.tasks.find((x) => x.taskId === taskId);
     if (!t) return;
     const state = terminalState(t);

@@ -4,19 +4,24 @@ import { useSettingsStore } from "@/stores/settings";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { forgetCredentials } from "@/api/auth";
+import { useHistoryStore } from "@/stores/history";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 
 const settings = useSettingsStore();
 const auth = useAuthStore();
 const themeStore = useThemeStore();
+const history = useHistoryStore();
 
 const baseUrlDraft = ref("");
 const flash = ref("");
 const forgetting = ref(false);
 const forgotDone = ref(false);
+const pendingClearLogs = ref(false);
+const clearingLogs = ref(false);
 
 onMounted(async () => {
   // 每次都重新读：不能因为"已加载过"就跳过，
@@ -24,6 +29,8 @@ onMounted(async () => {
   await settings.load();
   baseUrlDraft.value = settings.baseUrl;
   themeStore.apply(settings.theme);
+  // 日志占用空间要现算，不然在历史页删过之后这里会显示旧值
+  void history.load();
 });
 
 // 地址在别处被改动时，输入框跟着更新，避免用户看到陈旧的草稿
@@ -64,6 +71,34 @@ async function onForget(): Promise<void> {
 
 const backendLabel = (): string =>
   auth.credentialBackend === "keyring" ? "系统钥匙串" : "加密文件";
+
+function sizeText(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * 改完条数立刻按新策略清理一次：用户改这个值的目的就是"现在就瘦身"，
+ * 等下次启动才生效会让人以为没生效（实测踩过）。
+ */
+async function onRetentionEntriesChange(e: Event): Promise<void> {
+  const n = Number((e.target as HTMLInputElement).value);
+  await settings.patch({ logRetentionEntries: n });
+  const removed = await history.applyRetention();
+  showFlash(removed > 0 ? `已按新策略删除 ${removed} 条` : "已按新策略清理");
+}
+
+async function doClearLogs(): Promise<void> {
+  clearingLogs.value = true;
+  try {
+    await history.clear();
+    pendingClearLogs.value = false;
+    showFlash("已清空全部日志");
+  } finally {
+    clearingLogs.value = false;
+  }
+}
 </script>
 
 <template>
@@ -147,10 +182,70 @@ const backendLabel = (): string =>
         />
       </div>
       <p class="text-[11px] text-text-muted">
-        托盘常驻与构建完成通知将在后续计划（P6）实现；上述选项现在就会被持久化。
+        关闭到托盘后，应用会常驻系统托盘；构建完成且窗口不在前台时会发系统通知。
       </p>
     </section>
 
+    <section class="space-y-3">
+      <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider">日志留存</h2>
+      <div class="space-y-1.5">
+        <Label for="s-retention-days" class="font-normal">保留天数</Label>
+        <Input
+          id="s-retention-days"
+          type="number"
+          :model-value="String(settings.logRetentionDays)"
+          min="1"
+          max="3650"
+          @change="
+            (e: Event) =>
+              settings.patch({ logRetentionDays: Number((e.target as HTMLInputElement).value) })
+          "
+        />
+      </div>
+      <div class="space-y-1.5">
+        <Label for="s-retention-entries" class="font-normal">最大条数</Label>
+        <Input
+          id="s-retention-entries"
+          type="number"
+          :model-value="String(settings.logRetentionEntries)"
+          min="1"
+          max="10000"
+          @change="onRetentionEntriesChange"
+        />
+      </div>
+      <div class="flex items-center justify-between text-xs py-1">
+        <span class="text-text-muted">当前占用</span>
+        <span>{{ history.entries.length }} 条 · {{ sizeText(history.totalSize) }}</span>
+      </div>
+      <p class="text-[11px] text-text-muted">
+        只留存你主动打开过日志的任务；超出策略的日志会被自动删除（包括正文文件）。
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        class="text-danger hover:text-danger"
+        :disabled="history.entries.length === 0"
+        @click="pendingClearLogs = true"
+      >
+        清空全部日志
+      </Button>
+    </section>
+
     <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
+
+    <ConfirmDialog
+      :open="pendingClearLogs"
+      title="清空全部历史日志？"
+      description="将删除所有已留存的日志文件，不可恢复"
+      confirm-text="清空"
+      danger
+      :loading="clearingLogs"
+      @update:open="
+        (v: boolean) => {
+          if (!v) pendingClearLogs = false;
+        }
+      "
+      @confirm="doClearLogs"
+    />
   </div>
 </template>

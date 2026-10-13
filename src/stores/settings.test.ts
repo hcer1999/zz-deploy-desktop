@@ -20,6 +20,8 @@ const CONFIG: configApi.AppConfig = {
   username: "zhangsan",
   closeBehavior: "tray",
   pollIntervalSecs: 60,
+  logRetentionDays: 30,
+  logRetentionEntries: 500,
 };
 
 describe("settings store", () => {
@@ -71,6 +73,19 @@ describe("settings store", () => {
     expect(sent.pollIntervalSecs).toBe(120);
     expect(sent.username).toBe("zhangsan");
     expect(sent.theme).toBe("dark");
+  });
+
+  it("patch 只改日志保留天数时不会把保留条数写成默认值", async () => {
+    vi.mocked(configApi.getConfig).mockResolvedValue({ ...CONFIG, logRetentionEntries: 120 });
+    vi.mocked(configApi.setConfig).mockImplementation(async (p) => p);
+
+    const s = useSettingsStore();
+    await s.load();
+    await s.patch({ logRetentionDays: 7 });
+
+    const sent = vi.mocked(configApi.setConfig).mock.calls[0][0];
+    expect(sent.logRetentionDays).toBe(7);
+    expect(sent.logRetentionEntries).toBe(120);
   });
 
   it("patch 后本地状态跟随服务端返回值", async () => {

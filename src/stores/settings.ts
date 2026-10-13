@@ -22,6 +22,8 @@ export const useSettingsStore = defineStore("settings", () => {
   const username = ref("");
   const closeBehavior = ref<CloseBehavior>("tray");
   const pollIntervalSecs = ref(60);
+  const logRetentionDays = ref(30);
+  const logRetentionEntries = ref(500);
   const loaded = ref(false);
 
   function apply(c: configApi.AppConfig): void {
@@ -30,6 +32,8 @@ export const useSettingsStore = defineStore("settings", () => {
     username.value = c.username;
     closeBehavior.value = c.closeBehavior;
     pollIntervalSecs.value = c.pollIntervalSecs;
+    logRetentionDays.value = c.logRetentionDays;
+    logRetentionEntries.value = c.logRetentionEntries;
     loaded.value = true;
   }
 
@@ -66,6 +70,8 @@ export const useSettingsStore = defineStore("settings", () => {
       username: partial.username ?? username.value,
       closeBehavior: partial.closeBehavior ?? closeBehavior.value,
       pollIntervalSecs: partial.pollIntervalSecs ?? pollIntervalSecs.value,
+      logRetentionDays: partial.logRetentionDays ?? logRetentionDays.value,
+      logRetentionEntries: partial.logRetentionEntries ?? logRetentionEntries.value,
     });
     apply(next);
   }
@@ -76,6 +82,8 @@ export const useSettingsStore = defineStore("settings", () => {
     username,
     closeBehavior,
     pollIntervalSecs,
+    logRetentionDays,
+    logRetentionEntries,
     loaded,
     load,
     changeBaseUrl,

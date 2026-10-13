@@ -32,6 +32,7 @@ tauri-plugin-store = "2"
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
 tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
 
 # keyring 必须分平台声明：若把 sync-secret-service 写进通用依赖，
 # macOS 构建也会被拉入 D-Bus 相关依赖。

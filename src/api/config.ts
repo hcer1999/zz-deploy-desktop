@@ -6,6 +6,8 @@ export interface AppConfig {
   username: string;
   closeBehavior: "tray" | "quit";
   pollIntervalSecs: number;
+  logRetentionDays: number;
+  logRetentionEntries: number;
 }
 
 export function getConfig(): Promise<AppConfig> {

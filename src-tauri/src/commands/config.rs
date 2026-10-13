@@ -17,6 +17,10 @@ pub struct AppConfig {
     /// 关闭窗口行为："tray" | "quit"
     pub close_behavior: String,
     pub poll_interval_secs: u32,
+    /// 日志留存天数（spec §6.3，默认 30）
+    pub log_retention_days: u64,
+    /// 日志留存条数上限（spec §6.3，默认 500）
+    pub log_retention_entries: usize,
 }
 
 impl Default for AppConfig {
@@ -27,6 +31,8 @@ impl Default for AppConfig {
             username: String::new(),
             close_behavior: "tray".to_string(),
             poll_interval_secs: 60,
+            log_retention_days: 30,
+            log_retention_entries: 500,
         }
     }
 }
@@ -44,6 +50,16 @@ fn normalize_close_behavior(v: &str) -> String {
         "tray" | "quit" => v.to_string(),
         _ => "tray".to_string(),
     }
+}
+
+/// 保留策略只接受合理区间：0 天 / 0 条会在启动清理时把日志全删光，
+/// 而不设上界则等于允许把磁盘写爆。
+fn clamp_retention_days(v: u64) -> u64 {
+    v.clamp(1, 3650)
+}
+
+fn clamp_retention_entries(v: u64) -> usize {
+    v.clamp(1, 10_000) as usize
 }
 
 pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
@@ -73,6 +89,12 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
     if let Some(v) = store.get("pollIntervalSecs").and_then(|v| v.as_u64()) {
         cfg.poll_interval_secs = v.clamp(10, 3600) as u32;
     }
+    if let Some(v) = store.get("logRetentionDays").and_then(|v| v.as_u64()) {
+        cfg.log_retention_days = clamp_retention_days(v);
+    }
+    if let Some(v) = store.get("logRetentionEntries").and_then(|v| v.as_u64()) {
+        cfg.log_retention_entries = clamp_retention_entries(v);
+    }
     Ok(cfg)
 }
 
@@ -93,6 +115,14 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, cfg: &AppConfig) -> Result<(), AppEr
     store.set(
         "pollIntervalSecs",
         serde_json::json!(cfg.poll_interval_secs),
+    );
+    store.set(
+        "logRetentionDays",
+        serde_json::json!(clamp_retention_days(cfg.log_retention_days)),
+    );
+    store.set(
+        "logRetentionEntries",
+        serde_json::json!(clamp_retention_entries(cfg.log_retention_entries as u64)),
     );
     store
         .save()
@@ -138,7 +168,20 @@ mod tests {
 
     #[test]
     fn default_config_points_at_itsm() {
-        assert_eq!(AppConfig::default().base_url, DEFAULT_BASE_URL);
+        let d = AppConfig::default();
+        assert_eq!(d.base_url, DEFAULT_BASE_URL);
+        assert_eq!(d.log_retention_days, 30);
+        assert_eq!(d.log_retention_entries, 500);
+    }
+
+    #[test]
+    fn retention_bounds_are_clamped() {
+        // 0 或极大会在启动清理时造成误删 / 磁盘写爆，必须夹住
+        assert_eq!(clamp_retention_days(0), 1);
+        assert_eq!(clamp_retention_days(99999), 3650);
+        assert_eq!(clamp_retention_days(30), 30);
+        assert_eq!(clamp_retention_entries(0), 1);
+        assert_eq!(clamp_retention_entries(99999), 10_000);
     }
 
     #[test]
@@ -147,6 +190,8 @@ mod tests {
         assert!(v.get("baseUrl").is_some());
         assert!(v.get("pollIntervalSecs").is_some());
         assert!(v.get("closeBehavior").is_some());
+        assert!(v.get("logRetentionDays").is_some());
+        assert!(v.get("logRetentionEntries").is_some());
     }
 
     #[test]
@@ -157,11 +202,15 @@ mod tests {
             username: "zhangsan".to_string(),
             close_behavior: "quit".to_string(),
             poll_interval_secs: 120,
+            log_retention_days: 7,
+            log_retention_entries: 42,
         };
         let text = serde_json::to_string(&original).unwrap();
         let back: AppConfig = serde_json::from_str(&text).unwrap();
         assert_eq!(back.base_url, original.base_url);
         assert_eq!(back.theme, original.theme);
         assert_eq!(back.poll_interval_secs, original.poll_interval_secs);
+        assert_eq!(back.log_retention_days, 7);
+        assert_eq!(back.log_retention_entries, 42);
     }
 }

@@ -59,9 +59,12 @@ describe("useBuildNotifications", () => {
 
   it("窗口失焦时，日志流结束会弹一条通知", async () => {
     const tasks = useTasksStore();
-    tasks.tasks = [task(1001, "构建成功")];
+    // 轮询先看到"构建中"，才认得出这次日志结束是真正的构建完成
+    tasks.tasks = [task(1001, "构建中")];
     const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
 
+    tasks.tasks = [task(1001, "构建成功")];
     notify.onLogFinished(1001);
     await settle();
 
@@ -69,12 +72,27 @@ describe("useBuildNotifications", () => {
     expect(sendNotification.mock.calls[0][0]).toMatchObject({ id: 1001, title: "构建成功" });
   });
 
+  it("回看历史日志（服务端重放旧日志）不弹通知", async () => {
+    const tasks = useTasksStore();
+    // 从未看到它处于构建中，只有一条已完成的记录
+    tasks.tasks = [task(1007, "构建成功")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    notify.onLogFinished(1007);
+    await settle();
+
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+
   it("窗口聚焦时不打扰用户", async () => {
     isFocused.mockResolvedValue(true);
     const tasks = useTasksStore();
-    tasks.tasks = [task(1002, "构建成功")];
+    tasks.tasks = [task(1002, "构建中")];
     const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
 
+    tasks.tasks = [task(1002, "构建成功")];
     notify.onLogFinished(1002);
     await settle();
 

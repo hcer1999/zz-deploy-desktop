@@ -15,6 +15,7 @@ use session::SessionState;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
@@ -57,6 +58,16 @@ pub fn run() {
             // 常驻托盘
             crate::tray::setup(app.handle())?;
 
+            // 启动时按保留策略清理一次（spec §6.3）。
+            // 同步做完：请求量很小（一条索引 + 少量文件删除），不值得为它建任务。
+            {
+                let store = app.state::<crate::logs::store::LogStore>();
+                let _ = store.apply_retention(&crate::logs::store::Retention {
+                    max_days: cfg.log_retention_days,
+                    max_entries: cfg.log_retention_entries,
+                });
+            }
+
             // 关闭窗口的默认行为是"关闭到托盘"而不是退出（设置页可改为直接退出）
             register_close_behavior(app);
 
@@ -78,6 +89,12 @@ pub fn run() {
             net::command::http_request,
             commands::log::log_open,
             commands::log::log_close,
+            commands::history::history_list,
+            commands::history::history_read,
+            commands::history::history_delete,
+            commands::history::history_clear,
+            commands::history::history_apply_retention,
+            commands::history::history_export,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
