@@ -12,6 +12,31 @@
 
 ---
 
+## 执行中的修正（Task 0–3 已落地）
+
+计划写就后，实际环境暴露了若干与预期不符之处。以下为**已执行的偏离**，后续任务按此为准：
+
+| # | 计划原稿 | 实际执行 | 原因 |
+|---|---|---|---|
+| 1 | `tauri build --no-bundle` 做 Task 1 验证 | 改为 `cargo build`（debug） | release 档 `lto=true` + `codegen-units=1` 太慢；release 验证推迟到 Task 18 |
+| 2 | `vite.config.ts` 用 `__dirname` | 改为 `fileURLToPath(new URL("./src", import.meta.url))` | 模板是 ESM，`__dirname` 不存在 |
+| 3 | tsconfig 加 `baseUrl` + `paths` | **只加 `paths`** | TypeScript 6 已弃用 `baseUrl`（TS5101） |
+| 4 | 未提 pinia 安装 | 补装 `pinia@4` | 计划遗漏，`main.ts` 需要 |
+| 5 | `style.css` 用 `:root{--color-bg}` + `@theme inline{--color-bg:var(--color-bg)}` | 改为 `--deploy-*` 原始调色板 + shadcn 语义 token 引用它 | 原稿是 `var()` 自引用，且与 shadcn 的 `--color-accent`/`--color-border` 撞名（后者在后会覆盖） |
+| 6 | `npx shadcn-vue@latest init` | 本地装 `shadcn-vue@2.8.2` + npm `overrides` 钉 Vue 到 3.5.43 | 上游 `@vue/shared@3.5.44` 未发布，`npx` 解析失败 |
+| 7 | `-b slate` | `-b zinc`（另需 `--base reka --icon-library lucide --font inter`） | 该版本有效基础色为 neutral/stone/zinc/mauve/olive/mist/taupe |
+| 8 | `add ... toast` | `add ... sonner` | shadcn-vue 中 `toast` 已废弃 |
+| 9 | 自研 `AppToast.vue` | 用 `vue-sonner` + `src/components/ui/sonner` | 同上，避免重复造轮子 |
+| 10 | `bg-accent text-accent-fg` | `bg-primary text-primary-foreground` | `accent` 在 shadcn 语义里是"中性悬停底"，品牌色走 `primary` |
+
+**仍然有效的 token 别名**（`@theme inline` 中保留，业务代码可直接用）：
+`bg-bg` `bg-surface` `bg-surface-2` `text-text` `text-text-muted` `text-success` `text-warning` `text-danger` `border-border`
+另可用 shadcn 全套：`bg-background` `text-foreground` `bg-primary` `bg-muted` `bg-popover` `bg-card` `text-muted-foreground` 等。
+
+**`shadcn-vue add` 的可用组件名**：`button input label select switch dialog tabs separator sonner`（图标库为 `@lucide/vue`）。
+
+---
+
 ## 前置说明
 
 **工作目录：** `~/code/company/tool-demo/zz-deploy-desktop`（已初始化 git，含 `docs/`）
@@ -47,8 +72,7 @@ zz-deploy-desktop/
 │   │   │   ├── SideNav.vue               左侧导航
 │   │   │   └── TabBar.vue                顶部标签栏
 │   │   └── common/
-│   │       ├── AppToast.vue              轻量 toast 宿主
-│   │       └── ConfirmDialog.vue         确认对话框
+│   │       └── ConfirmDialog.vue         确认对话框（toast 直接用 ui/sonner）
 │   ├── views/
 │   │   ├── LoginView.vue                 登录页
 │   │   ├── SettingsView.vue              设置页
@@ -920,7 +944,7 @@ function onOpen(kind: TabKind): void {
       :title="it.label"
       :class="[
         'w-10 h-10 rounded-md flex items-center justify-center transition-colors',
-        isActive(it.kind) ? 'bg-accent/15 text-accent' : 'text-text-muted hover:bg-surface-2 hover:text-text',
+        isActive(it.kind) ? 'bg-primary/15 text-primary' : 'text-text-muted hover:bg-surface-2 hover:text-text',
       ]"
       @click="onOpen(it.kind)"
     >
