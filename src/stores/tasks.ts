@@ -18,6 +18,20 @@ export const useTasksStore = defineStore("tasks", () => {
   });
   const loading = ref(false);
   const error = ref("");
+  /**
+   * 最后一次**成功**刷新的时间。
+   * 放在 store 而不是视图里：手动刷新与轮询都走 refresh()，
+   * 视图自己记的话轮询路径就更新不到（实测踩过）。
+   */
+  const lastRefreshedAt = ref<Date | null>(null);
+
+  // ---- 轮询 ----
+  const offline = ref(false);
+  const pollIntervalSecs = ref(60);
+  let timer: ReturnType<typeof setInterval> | undefined;
+  let consecutiveFailures = 0;
+  /** 连续失败到这个次数就停止轮询并转离线，避免离线时一直无效打服务端 */
+  const MAX_CONSECUTIVE_FAILURES = 3;
 
   /**
    * 拉取当前条件下的列表。
@@ -32,10 +46,35 @@ export const useTasksStore = defineStore("tasks", () => {
       const r = await fetchTaskList(deployType.value, page.value, search.value);
       tasks.value = r.tasks;
       pageInfo.value = r.pageInfo;
+      consecutiveFailures = 0;
+      offline.value = false;
+      lastRefreshedAt.value = new Date();
     } catch (e) {
       error.value = toUserMessage(e);
+      consecutiveFailures += 1;
+      if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        offline.value = true;
+        // 停止轮询；恢复由用户手动点「刷新」触发
+        stopPolling();
+      }
     } finally {
       loading.value = false;
+    }
+  }
+
+  /** 启动轮询。重复调用不会叠加定时器 */
+  function startPolling(intervalSecs: number): void {
+    pollIntervalSecs.value = intervalSecs;
+    stopPolling();
+    timer = setInterval(() => {
+      void refresh();
+    }, intervalSecs * 1000);
+  }
+
+  function stopPolling(): void {
+    if (timer !== undefined) {
+      clearInterval(timer);
+      timer = undefined;
     }
   }
 
@@ -81,7 +120,12 @@ export const useTasksStore = defineStore("tasks", () => {
     pageInfo,
     loading,
     error,
+    offline,
+    lastRefreshedAt,
+    pollIntervalSecs,
     refresh,
+    startPolling,
+    stopPolling,
     setDeployType,
     applySearch,
     goPage,

@@ -2237,6 +2237,12 @@ export const useTasksStore = defineStore("tasks", () => {
   });
   const loading = ref(false);
   const error = ref("");
+  /**
+   * 最后一次**成功**刷新的时间。
+   * 放在 store 而不是视图里：手动刷新与轮询都走 refresh()，
+   * 视图自己记的话轮询路径就更新不到（实测踩过）。
+   */
+  const lastRefreshedAt = ref<Date | null>(null);
 
   /** 拉取当前条件下的列表。失败只记录到 error，不抛给调用方——
    * 它被轮询和按钮两处调用，抛异常会变成未捕获的 rejection。 */
@@ -2296,7 +2302,12 @@ export const useTasksStore = defineStore("tasks", () => {
     pageInfo,
     loading,
     error,
+    offline,
+    lastRefreshedAt,
+    pollIntervalSecs,
     refresh,
+    startPolling,
+    stopPolling,
     setDeployType,
     applySearch,
     goPage,
@@ -2334,11 +2345,14 @@ onMounted(async () => {
   if (tasks.tasks.length === 0) await tasks.refresh();
 });
 
-const lastRefresh = ref("");
 async function doRefresh(): Promise<void> {
   await tasks.refresh();
-  lastRefresh.value = new Date().toLocaleTimeString("zh-CN");
 }
+
+/** 最后成功刷新时间由 store 记录，手动与轮询两条路径都会更新 */
+const lastRefreshText = computed(() =>
+  tasks.lastRefreshedAt ? tasks.lastRefreshedAt.toLocaleTimeString("zh-CN") : "",
+);
 
 const projectLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "Docker"));
 </script>
@@ -2367,8 +2381,8 @@ const projectLabel = computed(() => (tasks.deployType === "auto" ? "自动化" :
       <Button variant="outline" size="sm" :disabled="tasks.loading" @click="doRefresh">
         {{ tasks.loading ? "刷新中…" : "刷新" }}
       </Button>
-      <span v-if="lastRefresh" class="text-[11px] text-text-muted">
-        {{ projectLabel }} · 最后刷新 {{ lastRefresh }}
+      <span v-if="lastRefreshText" class="text-[11px] text-text-muted">
+        {{ projectLabel }} · 最后刷新 {{ lastRefreshText }}
       </span>
     </div>
 
@@ -2671,7 +2685,7 @@ git commit -m "feat: 任务列表的行内操作（上线/回滚/删除）与确
       vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
       const s = useTasksStore();
 
-      s.startPolling(1000);
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
       await vi.advanceTimersByTimeAsync(1000);
       expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
 
@@ -2686,7 +2700,7 @@ git commit -m "feat: 任务列表的行内操作（上线/回滚/删除）与确
       vi.useFakeTimers();
       vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
       const s = useTasksStore();
-      s.startPolling(1000);
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
       s.stopPolling();
       await vi.advanceTimersByTimeAsync(5000);
       expect(deployApi.fetchTaskList).not.toHaveBeenCalled();
@@ -2697,8 +2711,8 @@ git commit -m "feat: 任务列表的行内操作（上线/回滚/删除）与确
       vi.useFakeTimers();
       vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
       const s = useTasksStore();
-      s.startPolling(1000);
-      s.startPolling(1000);
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
       await vi.advanceTimersByTimeAsync(1000);
       expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
       s.stopPolling();
@@ -2709,7 +2723,7 @@ git commit -m "feat: 任务列表的行内操作（上线/回滚/删除）与确
       vi.useFakeTimers();
       vi.mocked(deployApi.fetchTaskList).mockRejectedValue({ kind: "network", message: "down" });
       const s = useTasksStore();
-      s.startPolling(1000);
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
       await vi.advanceTimersByTimeAsync(1000);
       await vi.advanceTimersByTimeAsync(1000);
       await vi.advanceTimersByTimeAsync(1000);
@@ -2728,7 +2742,7 @@ git commit -m "feat: 任务列表的行内操作（上线/回滚/删除）与确
         .mockResolvedValue(PAGE)
         .mockRejectedValueOnce({ kind: "network", message: "x" });
       const s = useTasksStore();
-      s.startPolling(1000);
+      s.startPolling(1);  // 参数是秒，1 秒便于测试
       await vi.advanceTimersByTimeAsync(1000);
       await vi.advanceTimersByTimeAsync(1000);
       expect(s.offline).toBe(false);
@@ -2773,6 +2787,7 @@ npm test -- src/stores/tasks.test.ts 2>&1 | tail -6
       pageInfo.value = r.pageInfo;
       consecutiveFailures = 0;
       offline.value = false;
+      lastRefreshedAt.value = new Date();
     } catch (e) {
       error.value = toUserMessage(e);
       consecutiveFailures += 1;
@@ -2803,7 +2818,7 @@ npm test -- src/stores/tasks.test.ts 2>&1 | tail -6
   }
 ```
 
-并把 `startPolling` / `stopPolling` / `offline` / `pollIntervalSecs` 加进 `return { ... }`。
+（`startPolling` / `stopPolling` / `offline` / `lastRefreshedAt` / `pollIntervalSecs` 已含在上面的 `return { ... }` 中。）
 
 - [ ] **Step 4: 运行测试确认通过**
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
 
 vi.mock("@/api/deploy", () => ({
@@ -163,5 +163,137 @@ describe("tasks store", () => {
     const s = useTasksStore();
     s.pageInfo = { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false };
     expect(s.pageWindow()).toEqual([1]);
+  });
+
+  describe("最后刷新时间", () => {
+    it("刷新成功后记录时间", async () => {
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+      expect(s.lastRefreshedAt).toBeNull();
+      await s.refresh();
+      expect(s.lastRefreshedAt).toBeInstanceOf(Date);
+    });
+
+    it("刷新失败时保留上一次的时间，不置空", async () => {
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+      await s.refresh();
+      const first = s.lastRefreshedAt;
+
+      vi.mocked(deployApi.fetchTaskList).mockRejectedValue({ kind: "network", message: "x" });
+      await s.refresh();
+      expect(s.lastRefreshedAt).toBe(first);
+    });
+
+    it("轮询也会更新时间（回归：曾经只有手动刷新才更新）", async () => {
+      // 原实现把 lastRefresh 放在视图的 doRefresh 里，轮询走的是
+      // store.refresh()，不经过 doRefresh，于是时间戳永远不动。
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+
+      s.startPolling(1);
+      await vi.advanceTimersByTimeAsync(1000);
+
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
+      expect(s.lastRefreshedAt).toBeInstanceOf(Date);
+
+      s.stopPolling();
+      vi.useRealTimers();
+    });
+  });
+
+  describe("轮询", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("startPolling 到点会刷新", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+
+      // 注意：startPolling 的参数是【秒】（与配置字段 pollIntervalSecs 一致），
+      // 内部会 ×1000 转毫秒。早期测试误写成 startPolling(1000)（=1000 秒），
+      // 推进 1000ms 自然不触发，白白排查了很久。
+      s.startPolling(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(2);
+
+      s.stopPolling();
+    });
+
+    it("stopPolling 之后不再刷新", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+      s.startPolling(1);
+      s.stopPolling();
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(deployApi.fetchTaskList).not.toHaveBeenCalled();
+    });
+
+    it("重复 startPolling 不会叠加多个定时器", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+      s.startPolling(1);
+      s.startPolling(1);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
+      s.stopPolling();
+    });
+
+    it("连续失败 3 次后自动停止轮询（离线时不再无效打服务端）", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockRejectedValue({ kind: "network", message: "down" });
+      const s = useTasksStore();
+      s.startPolling(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(1000);
+      const callsAfterThree = vi.mocked(deployApi.fetchTaskList).mock.calls.length;
+      expect(callsAfterThree).toBe(3);
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(vi.mocked(deployApi.fetchTaskList).mock.calls.length).toBe(callsAfterThree);
+      expect(s.offline).toBe(true);
+    });
+
+    it("成功后清零失败计数，不会累积到离线", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList)
+        .mockRejectedValueOnce({ kind: "network", message: "x" })
+        .mockResolvedValue(PAGE)
+        .mockRejectedValueOnce({ kind: "network", message: "x" });
+      const s = useTasksStore();
+      s.startPolling(1);
+
+      await vi.advanceTimersByTimeAsync(1000); // 失败 1
+      await vi.advanceTimersByTimeAsync(1000); // 成功，计数清零
+      // 先确认真的发了请求，否则 offline===false 只是"什么都没发生"的假通过
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(2);
+      expect(s.offline).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1000); // 再失败 1
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(3);
+      expect(s.offline).toBe(false);
+      s.stopPolling();
+    });
+
+    it("间隔可配置", async () => {
+      vi.useFakeTimers();
+      vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+      const s = useTasksStore();
+      s.startPolling(10);
+      expect(s.pollIntervalSecs).toBe(10);
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
+      s.stopPolling();
+    });
   });
 });

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { submitOnline, submitRollback, deleteTask } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import type { DeployTask } from "@/api/parser";
 import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
+import { useSettingsStore } from "@/stores/settings";
 import StatusBadge from "@/components/common/StatusBadge.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Input } from "@/components/ui/input";
 
 const tasks = useTasksStore();
 const tabs = useTabsStore();
+const settings = useSettingsStore();
 const searchDraft = ref(tasks.search);
 
 /** 本标签是否为当前激活标签 */
@@ -19,12 +21,9 @@ function isActive(): boolean {
   return tabs.activeTab?.kind === "list";
 }
 
-onMounted(() => {
-  if (isActive()) void tasks.refresh();
-});
-
 /**
- * 切到本标签时主动拉一次最新数据。
+ * 变为可见：拉一次最新数据并启动轮询。
+ * 变为不可见：停掉轮询，避免在后台空转打服务端。
  *
  * 为什么不能只靠 onMounted：任务列表是**单例标签**，TabHost 用 v-show
  * 隐藏而非卸载它，所以组件只挂载一次，切回来时 onMounted 不会重跑。
@@ -34,20 +33,29 @@ onMounted(() => {
  * 必须手动点一次「刷新」才看得到刚提交的任务。
  *
  * 首次挂载时 activeId 已经是本标签，watch 不会触发（无变化），
- * 由上面的 onMounted 负责，因此不会重复请求。
+ * 由 onMounted 负责，因此不会重复请求。
  */
-watch(
-  () => tabs.activeId,
-  () => {
-    if (isActive()) void tasks.refresh();
-  },
-);
+function syncVisibility(): void {
+  if (isActive()) {
+    void tasks.refresh();
+    tasks.startPolling(settings.pollIntervalSecs);
+  } else {
+    tasks.stopPolling();
+  }
+}
 
-const lastRefresh = ref("");
+onMounted(syncVisibility);
+watch(() => tabs.activeId, syncVisibility);
+onUnmounted(() => tasks.stopPolling());
+
 async function doRefresh(): Promise<void> {
   await tasks.refresh();
-  lastRefresh.value = new Date().toLocaleTimeString("zh-CN");
 }
+
+/** 最后成功刷新时间由 store 记录，手动与轮询两条路径都会更新 */
+const lastRefreshText = computed(() =>
+  tasks.lastRefreshedAt ? tasks.lastRefreshedAt.toLocaleTimeString("zh-CN") : "",
+);
 
 const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "Docker"));
 
@@ -120,12 +128,16 @@ async function runAction(): Promise<void> {
       <Button variant="outline" size="sm" :disabled="tasks.loading" @click="doRefresh">
         {{ tasks.loading ? "刷新中…" : "刷新" }}
       </Button>
-      <span v-if="lastRefresh" class="text-[11px] text-text-muted">
-        {{ typeLabel }} · 最后刷新 {{ lastRefresh }}
+      <span v-if="lastRefreshText" class="text-[11px] text-text-muted">
+        {{ typeLabel }} · 最后刷新 {{ lastRefreshText }}
       </span>
     </div>
 
     <p v-if="tasks.error" class="text-xs text-danger">{{ tasks.error }}</p>
+
+    <p v-if="tasks.offline" class="text-xs text-warning">
+      连续多次请求失败，已停止自动刷新。请检查内网连接后点「刷新」重试。
+    </p>
 
     <div
       v-if="tasks.tasks.length === 0 && !tasks.loading"
