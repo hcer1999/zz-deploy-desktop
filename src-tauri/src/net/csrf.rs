@@ -71,7 +71,9 @@ mod tests {
         let form = vec![("csrfmiddlewaretoken".to_string(), "OLD".to_string())];
         let out = with_csrf(form, "NEW");
         assert_eq!(
-            out.iter().filter(|(k, _)| k == "csrfmiddlewaretoken").count(),
+            out.iter()
+                .filter(|(k, _)| k == "csrfmiddlewaretoken")
+                .count(),
             1
         );
         assert!(out.contains(&("csrfmiddlewaretoken".to_string(), "NEW".to_string())));

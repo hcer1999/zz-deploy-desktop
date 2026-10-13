@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use reqwest::Client;
 use reqwest::cookie::{CookieStore, Jar};
 use reqwest::redirect::Policy;
-use reqwest::Client;
 use serde::Serialize;
 use url::Url;
 
@@ -24,13 +24,7 @@ const COMMON_HEADERS: &[(&str, &str)] = &[
 ];
 
 const COOKIE_ATTRIBUTES: &[&str] = &[
-    "path",
-    "domain",
-    "expires",
-    "max-age",
-    "httponly",
-    "secure",
-    "samesite",
+    "path", "domain", "expires", "max-age", "httponly", "secure", "samesite",
 ];
 
 #[derive(Debug, Clone, Serialize)]
@@ -118,7 +112,11 @@ impl HttpClient {
         cookies.to_str().ok().map(|s| s.to_string())
     }
 
-    pub async fn get(&self, path: &str, query: &[(String, String)]) -> Result<HttpResult, AppError> {
+    pub async fn get(
+        &self,
+        path: &str,
+        query: &[(String, String)],
+    ) -> Result<HttpResult, AppError> {
         let mut url = self.url_for(path)?;
         if !query.is_empty() {
             let mut qp = url.query_pairs_mut();
@@ -271,10 +269,7 @@ mod tests {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
             .and(path("/submit/"))
-            .and(header(
-                "Content-Type",
-                "application/x-www-form-urlencoded",
-            ))
+            .and(header("Content-Type", "application/x-www-form-urlencoded"))
             .and(header("X-CSRFToken", "TOK"))
             .and(body_string_contains("csrfmiddlewaretoken=TOK"))
             .and(body_string_contains("title=deploy"))
@@ -312,7 +307,10 @@ mod tests {
         let h = c.cookie_header().await.unwrap();
         assert!(h.contains("sessionid=s1"), "实际：{h}");
         assert!(h.contains("csrftoken=TOK"), "实际：{h}");
-        assert!(!h.to_lowercase().contains("httponly"), "不应把属性当 cookie：{h}");
+        assert!(
+            !h.to_lowercase().contains("httponly"),
+            "不应把属性当 cookie：{h}"
+        );
     }
 
     #[tokio::test]

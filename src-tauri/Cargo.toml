@@ -27,6 +27,7 @@ url = "2"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
 aes-gcm = "0.10"
 rand = "0.8"
+tauri-plugin-store = "2"
 
 # keyring 必须分平台声明：若把 sync-secret-service 写进通用依赖，
 # macOS 构建也会被拉入 D-Bus 相关依赖。
