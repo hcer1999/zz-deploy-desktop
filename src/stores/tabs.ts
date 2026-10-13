@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref, computed } from "vue";
 
 export type TabKind = "wizard" | "favorites" | "list" | "history" | "settings" | "log";
@@ -104,3 +104,11 @@ export const useTabsStore = defineStore("tabs", () => {
 
   return { tabs, activeId, activeTab, open, close, focus, closeByKind, titleOf };
 });
+
+// Pinia 的 HMR 支持。
+// 没有它时，Vite 热更新只替换模块，**已创建的 store 实例仍是旧定义**，
+// 表现为改了 store 却在界面上拿到 undefined 的方法
+// （实测报错：tasks.refresh is not a function）。加这段后新定义立即生效。
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useTabsStore, import.meta.hot));
+}

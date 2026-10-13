@@ -1,4 +1,4 @@
-import { defineStore } from "pinia";
+import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import * as configApi from "@/api/config";
 import * as authApi from "@/api/auth";
@@ -82,3 +82,11 @@ export const useSettingsStore = defineStore("settings", () => {
     patch,
   };
 });
+
+// Pinia 的 HMR 支持。
+// 没有它时，Vite 热更新只替换模块，**已创建的 store 实例仍是旧定义**，
+// 表现为改了 store 却在界面上拿到 undefined 的方法
+// （实测报错：tasks.refresh is not a function）。加这段后新定义立即生效。
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useSettingsStore, import.meta.hot));
+}
