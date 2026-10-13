@@ -1075,7 +1075,7 @@ describe("fetchBranches", () => {
       res(200, null, '<select id="branchtag"><option value="main">main</option></select>'),
     );
     const out = await fetchBranches("auto", 42);
-    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/submit/42/", undefined);
+    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/submit/42/");
     expect(out).toEqual(["main"]);
   });
 });
@@ -1200,19 +1200,19 @@ describe("行内操作", () => {
   it("上线走 /up/", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(302, "/deployment/deploy/task/"));
     expect(await submitOnline("auto", 7)).toBe(true);
-    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/task/7/up/", undefined);
+    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/task/7/up/");
   });
 
   it("回滚走 /roll/", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(302, "/x/"));
     expect(await submitRollback("docker", 7)).toBe(true);
-    expect(http.httpGet).toHaveBeenCalledWith("/dockerdeploy/docker/task/7/roll/", undefined);
+    expect(http.httpGet).toHaveBeenCalledWith("/dockerdeploy/docker/task/7/roll/");
   });
 
   it("删除走 /submit/task/{id}/", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(302, "/x/"));
     expect(await deleteTask("auto", 7)).toBe(true);
-    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/submit/task/7/", undefined);
+    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/submit/task/7/");
   });
 
   it("会话过期时三个操作都判为失败", async () => {

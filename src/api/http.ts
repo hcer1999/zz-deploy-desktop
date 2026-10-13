@@ -72,5 +72,38 @@ export function isSuccessRedirect(r: HttpResult): boolean {
   return r.status === 302 && !isLoginRedirect(r);
 }
 
+/** GET 并解析 JSON。非 200 一律当失败——JSON 接口不会用 302 表达成功 */
+export async function httpGetJson<T>(path: string, query?: Query): Promise<T> {
+  const r = await httpGet(path, query);
+  if (r.status !== 200) {
+    throw toAppError({
+      kind: "server",
+      message: `HTTP ${r.status}`,
+      retryable: r.status >= 500,
+    });
+  }
+  try {
+    return JSON.parse(r.body) as T;
+  } catch (e) {
+    throw toAppError({
+      kind: "parse",
+      message: `JSON 解析失败：${e instanceof Error ? e.message : String(e)}`,
+      retryable: false,
+    });
+  }
+}
+
+/**
+ * 上线 / 回滚 / 删除这类"触发动作"的成功判定。
+ *
+ * 插件里的写法是 `status === 302 || resp.ok`（src/api/deploy.ts:79），
+ * 但它有个漏洞：会话过期时服务端也返回 302，只是指向 /login/，
+ * 会被误判成成功。这里先排除登录跳转。
+ */
+export function isActionOk(r: HttpResult): boolean {
+  if (isLoginRedirect(r)) return false;
+  return r.status === 302 || (r.status >= 200 && r.status < 300);
+}
+
 export { toUserMessage, toAppError, isAuthError };
 export type { AppError };
