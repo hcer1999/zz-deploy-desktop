@@ -25,6 +25,11 @@ onMounted(async () => {
   await listen<string>("auth://expired", (e) => auth.handleExpired(e.payload));
   // Rust 启动时的静默续登结束 → 刷新一次真实状态
   await listen("auth://ready", () => auth.refresh());
+  // 托盘菜单：Rust 只负责"显示窗口"，开哪个标签由前端决定
+  await listen<string>("tray://command", (e) => {
+    if (e.payload === "new_deploy") tabs.open({ kind: "wizard" });
+    else if (e.payload === "task_list") tabs.open({ kind: "list" });
+  });
 
   await settings.load();
   theme.apply(settings.theme);

@@ -4,6 +4,7 @@ pub mod logs;
 pub mod net;
 pub mod secure;
 pub mod session;
+pub mod tray;
 pub mod ws;
 
 use tauri::{Emitter, Manager};
@@ -52,6 +53,12 @@ pub fn run() {
                 let _ = login_handle.emit("auth://ready", ());
             });
 
+            // 常驻托盘
+            crate::tray::setup(app.handle())?;
+
+            // 关闭窗口的默认行为是"关闭到托盘"而不是退出（设置页可改为直接退出）
+            register_close_behavior(app);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -73,4 +80,27 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
+}
+
+/// 拦截主窗口关闭请求：配置为 "tray" 时改成隐藏窗口，应用留在托盘。
+///
+/// 每次关闭都重新读配置，用户在设置页改完立刻生效。
+fn register_close_behavior<R: tauri::Runtime>(app: &tauri::App<R>) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let handle = app.handle().clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            let behavior = commands::config::load(&handle)
+                .map(|c| c.close_behavior)
+                .unwrap_or_else(|_| "tray".to_string());
+            if behavior == "tray" {
+                api.prevent_close();
+                if let Some(w) = handle.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+        }
+    });
 }
