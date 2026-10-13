@@ -84,13 +84,23 @@ onUnmounted(() => window.removeEventListener("app://refresh", onRefreshShortcut)
  * 用 SortableJS 系的 vue-draggable-plus 而非 HTML5 原生拖拽：
  * 它基于指针事件，在 macOS/Windows/Linux 三端 webview
  * （WKWebView / WebView2 / WebKit GTK）上行为一致得多。
+ *
+ * ⚠️ 光用这个库不够——**必须同时打开 `force-fallback`**：
+ * SortableJS 默认优先用浏览器原生 HTML5 拖放，而各 webview 对原生拖放的
+ * 支持差异很大（实测在 Tauri 的 WKWebView 里拖不动，表现为"排序不生效"）。
+ *
+ * 直接读 v-model 里的数组：SortableJS 的事件顺序是 `update` → `end`，
+ * 库里挂的 onUpdate 会在 `end` 之前把新顺序写回 v-model，所以 `end` 时数组
+ * 已是用户看到的顺序（真浏览器实测：拖第一项过第二项后，提交的顺序是换过的）。
+ * 反过来说，别拿 `oldDraggableIndex/newDraggableIndex` 再自己算一遍：
+ * 那会把位移应用两次，又转回原顺序。
  */
 const reorderError = ref("");
 
 async function onReorderEnd(): Promise<void> {
   reorderError.value = "";
   try {
-    await favorites.persistOrder();
+    await favorites.persistOrder(favorites.items.map((f) => f.id));
   } catch (e) {
     reorderError.value = `排序未保存：${toUserMessage(e)}`;
     // 本地可能已被拖动改过，从服务端重新读回真实顺序
@@ -216,6 +226,9 @@ async function confirmDelete(): Promise<void> {
       handle=".drag-handle"
       ghost-class="opacity-40"
       class="space-y-2"
+      :force-fallback="true"
+      :fallback-on-body="true"
+      :fallback-tolerance="4"
       @end="onReorderEnd"
     >
       <div

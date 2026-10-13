@@ -24,15 +24,14 @@ export const useFavoritesStore = defineStore("favorites", () => {
   }
 
   /**
-   * 拖动结束后持久化当前顺序。
+   * 持久化顺序。
    *
-   * 数组顺序即显示顺序，所以直接用本地数组的 id 顺序提交；
-   * 但**以服务端返回的结果替换本地**——Rust 侧的 reorder 对
-   * "缺失/未知 id"有防御处理（见 commands/favorites.rs），
-   * 用权威结果覆盖可以避免本地与服务端不一致。
+   * 由调用方把**用户看到的目标顺序**传进来（拖动组件在 `end` 之前已把
+   * v-model 更新好，视图直接读模型即可），仍以服务端返回结果覆盖本地——
+   * Rust 侧 reorder 对"缺失/未知 id"有防御处理（见 commands/favorites.rs）。
    */
-  async function persistOrder(): Promise<void> {
-    items.value = await api.reorderFavorites(items.value.map((f) => f.id));
+  async function persistOrder(ids: string[]): Promise<void> {
+    items.value = await api.reorderFavorites(ids);
   }
 
   async function remove(id: string): Promise<void> {

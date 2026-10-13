@@ -103,26 +103,27 @@ describe("favorites store", () => {
   });
 
   describe("拖动排序", () => {
-    it("persistOrder 提交当前 id 顺序，并用服务端结果替换本地", async () => {
+    it("persistOrder 提交调用方给出的 id 顺序，并用服务端结果替换本地", async () => {
       const first = fav({ id: "1" });
       const second = fav({ id: "2" });
       const s = useFavoritesStore();
-      // 本地被拖成 2,1
-      s.items = [second, first];
+      s.items = [first, second];
 
-      // 服务端归一化后返回 1,2
-      vi.mocked(api.reorderFavorites).mockResolvedValue([first, second]);
-      await s.persistOrder();
+      // 服务端归一化后返回 2,1
+      vi.mocked(api.reorderFavorites).mockResolvedValue([second, first]);
+      await s.persistOrder(["2", "1"]);
 
       expect(api.reorderFavorites).toHaveBeenCalledWith(["2", "1"]);
-      expect(s.items.map((f) => f.id)).toEqual(["1", "2"]);
+      expect(s.items.map((f) => f.id)).toEqual(["2", "1"]);
     });
 
-    it("persistOrder 提交的是**当前**数组顺序，而不是最初加载的顺序", async () => {
+    it("persistOrder 提交的是**参数里的**顺序，而不是 items 里的旧顺序", async () => {
+      // 拖动组件写回 v-model 的时机不由我们控制；只要传参正确，
+      // 即使 items 还是旧顺序也不会把旧顺序提交上去
       const s = useFavoritesStore();
-      s.items = [fav({ id: "c" }), fav({ id: "a" }), fav({ id: "b" })];
+      s.items = [fav({ id: "a" }), fav({ id: "b" }), fav({ id: "c" })];
       vi.mocked(api.reorderFavorites).mockResolvedValue(s.items);
-      await s.persistOrder();
+      await s.persistOrder(["c", "a", "b"]);
       expect(api.reorderFavorites).toHaveBeenCalledWith(["c", "a", "b"]);
     });
 
@@ -130,7 +131,7 @@ describe("favorites store", () => {
       const s = useFavoritesStore();
       s.items = [fav({ id: "1" })];
       vi.mocked(api.reorderFavorites).mockRejectedValue({ kind: "network", message: "x" });
-      await expect(s.persistOrder()).rejects.toBeTruthy();
+      await expect(s.persistOrder(["1"])).rejects.toBeTruthy();
     });
   });
 
