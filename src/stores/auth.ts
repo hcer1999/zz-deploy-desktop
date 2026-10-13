@@ -45,11 +45,6 @@ export const useAuthStore = defineStore("auth", () => {
     error.value = "";
   }
 
-  async function changeBaseUrl(url: string): Promise<void> {
-    await authApi.setBaseUrl(url);
-    baseUrl.value = url.replace(/\/$/, "");
-  }
-
   /** 收到 Rust 的 auth://expired 事件时调用 */
   function handleExpired(reason: string): void {
     loggedIn.value = false;
@@ -66,7 +61,6 @@ export const useAuthStore = defineStore("auth", () => {
     refresh,
     login,
     logout,
-    changeBaseUrl,
     handleExpired,
   };
 });

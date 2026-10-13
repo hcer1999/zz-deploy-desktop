@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useAuthStore } from "@/stores/auth";
+import { useSettingsStore } from "@/stores/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
 const auth = useAuthStore();
+const settings = useSettingsStore();
 const username = ref("");
 const password = ref("");
 const remember = ref(true);
@@ -22,7 +24,10 @@ async function onSubmit(): Promise<void> {
 }
 
 async function onSaveBaseUrl(): Promise<void> {
-  await auth.changeBaseUrl(baseUrlDraft.value.trim());
+  // 必须走 settings store 的 changeBaseUrl：
+  // 它会同时重建 Rust 侧 HttpClient 并让所有 store 重新读到新值
+  await settings.changeBaseUrl(baseUrlDraft.value);
+  baseUrlDraft.value = settings.baseUrl;
   showAdvanced.value = false;
 }
 </script>

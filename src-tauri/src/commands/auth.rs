@@ -132,6 +132,14 @@ pub async fn auth_logout<R: Runtime>(
     Ok(())
 }
 
+/// 只清除已保存的凭据，不影响当前会话。
+/// 与 auth_logout 区分开：登出是"我现在不想用了"，
+/// 清凭据是"别再替我保存密码了"，两者语义不同。
+#[tauri::command]
+pub async fn auth_forget_credentials(session: State<'_, SessionState>) -> Result<(), AppError> {
+    session.credentials.forget()
+}
+
 /// 前端收到 `auth://expired` 后调用，用保存的凭据再试一次
 #[tauri::command]
 pub async fn auth_relogin<R: Runtime>(

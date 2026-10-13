@@ -53,6 +53,7 @@ pub fn run() {
             commands::auth::auth_login,
             commands::auth::auth_logout,
             commands::auth::auth_relogin,
+            commands::auth::auth_forget_credentials,
             commands::auth::set_base_url,
             net::command::http_request,
         ])

@@ -28,6 +28,11 @@ export function logout(): Promise<void> {
   return call<void>("auth_logout");
 }
 
+/** 只清除已保存的凭据，不影响当前会话 */
+export function forgetCredentials(): Promise<void> {
+  return call<void>("auth_forget_credentials");
+}
+
 export function relogin(): Promise<LoginResult> {
   return call<LoginResult>("auth_relogin");
 }

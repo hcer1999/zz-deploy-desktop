@@ -84,13 +84,6 @@ describe("auth store", () => {
     expect(s.username).toBe("");
   });
 
-  it("changeBaseUrl 去掉尾部斜杠", async () => {
-    vi.mocked(authApi.setBaseUrl).mockResolvedValue(undefined);
-    const s = useAuthStore();
-    await s.changeBaseUrl("https://itsm.zhizhengroup.com/");
-    expect(s.baseUrl).toBe("https://itsm.zhizhengroup.com");
-  });
-
   it("会话过期事件把 loggedIn 置 false 并带上原因", () => {
     const s = useAuthStore();
     s.loggedIn = true;
