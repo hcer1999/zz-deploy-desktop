@@ -54,6 +54,7 @@ pub fn run() {
             commands::auth::auth_logout,
             commands::auth::auth_relogin,
             commands::auth::set_base_url,
+            net::command::http_request,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
