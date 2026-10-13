@@ -4465,6 +4465,51 @@ git log --oneline | head -20
 
 ---
 
+---
+
+## 执行结果（2026-10-13 完成）
+
+| 验收项 | 结果 |
+|---|---|
+| Rust 单元测试 | ✅ 56 passed / 1 ignored（另有 1 个真实环境 e2e，手工运行通过） |
+| 前端 Vitest | ✅ 47 passed（tabs 7 / errors 7 / http 9 / auth 8 / theme 8 / settings 8） |
+| `vue-tsc --noEmit` | ✅ 无类型错误 |
+| 登录页区分正确/错误密码 | ✅ 用户实测 |
+| 记住密码后重启免登录 | ✅ 用户实测 |
+| **会话失效后静默续登** | ✅ 真实 ITSM e2e 实测，Replay 拿回 106892 字节任务列表 |
+| 主题三档 + 跟随系统实时切换 | ✅ 用户实测 |
+| macOS 钥匙串条目 | ✅ `security find-generic-password` 独立核验 |
+| 标签栏单例规则 | ✅ 用户实测 |
+| release 构建 | ✅ macOS arm64 通过（5.1MB）；**Windows / Linux 未验** |
+| 三端构建 | ⚠️ 仅 macOS。Windows / Linux 需在对应机器上执行 `npm run tauri build --no-bundle` |
+
+### 执行中发现并修掉的问题（计划稿的缺陷）
+
+1. `style.css` 里 `@theme inline` 写出 `var()` 自引用；且与 shadcn 的
+   `--color-accent` / `--color-border` 撞名，后者在后方会覆盖品牌色
+2. `vite.config.ts` 用了 ESM 下不存在的 `__dirname`
+3. tsconfig 的 `baseUrl` 在 TypeScript 6 已弃用
+4. `settings.patch` 传 `username: partial.username ?? ""`，改主题会清空用户名
+5. **`baseUrl` 同时存放于两个 store**，导致登录页改了地址后设置页显示旧值
+   （用户实测报出）。已收口为 settings store 单一持有者
+6. 自动续登只串行化未去重，N 个并发请求会触发 N 次登录（已用登录代际计数修复）
+7. capabilities 提前声明未安装插件的权限会导致构建失败
+8. `keyring` 用通用依赖声明会把 D-Bus 拉进 macOS 构建
+9. `Jar::add_cookie_str` 按单条 Set-Cookie 解析，传 `a=1; b=2` 会丢后半段
+10. 设置页「退出登录」与「清除凭据」原本都调 `auth.logout()`，行为重复
+
+### 交付物
+
+```
+zz-deploy-desktop/
+├── src/                      Vue 3 前端（api / stores / components / views）
+├── src-tauri/                Rust 能力层（net / secure / session / commands）
+├── docs/superpowers/specs/   设计方案
+└── docs/superpowers/plans/   本实施计划
+```
+
+Rust 能力层已就绪，Plan 2 只需在前端写业务请求与解析，无需再动 Rust。
+
 ## Plan 1 完成标准
 
 全部满足即视为 P0 + P1 交付完成：
