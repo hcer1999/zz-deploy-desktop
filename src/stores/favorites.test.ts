@@ -5,6 +5,7 @@ vi.mock("@/api/favorites", () => ({
   listFavorites: vi.fn(),
   saveFavorite: vi.fn(),
   deleteFavorite: vi.fn(),
+  reorderFavorites: vi.fn(),
 }));
 
 import * as api from "@/api/favorites";
@@ -99,6 +100,38 @@ describe("favorites store", () => {
     const before = s.items[0];
     s.refreshEnvNames([{ id: 1, name: "测试环境" }]);
     expect(s.items[0]).toBe(before);
+  });
+
+  describe("拖动排序", () => {
+    it("persistOrder 提交当前 id 顺序，并用服务端结果替换本地", async () => {
+      const first = fav({ id: "1" });
+      const second = fav({ id: "2" });
+      const s = useFavoritesStore();
+      // 本地被拖成 2,1
+      s.items = [second, first];
+
+      // 服务端归一化后返回 1,2
+      vi.mocked(api.reorderFavorites).mockResolvedValue([first, second]);
+      await s.persistOrder();
+
+      expect(api.reorderFavorites).toHaveBeenCalledWith(["2", "1"]);
+      expect(s.items.map((f) => f.id)).toEqual(["1", "2"]);
+    });
+
+    it("persistOrder 提交的是**当前**数组顺序，而不是最初加载的顺序", async () => {
+      const s = useFavoritesStore();
+      s.items = [fav({ id: "c" }), fav({ id: "a" }), fav({ id: "b" })];
+      vi.mocked(api.reorderFavorites).mockResolvedValue(s.items);
+      await s.persistOrder();
+      expect(api.reorderFavorites).toHaveBeenCalledWith(["c", "a", "b"]);
+    });
+
+    it("persistOrder 失败时向调用方抛出，便于界面提示并回滚", async () => {
+      const s = useFavoritesStore();
+      s.items = [fav({ id: "1" })];
+      vi.mocked(api.reorderFavorites).mockRejectedValue({ kind: "network", message: "x" });
+      await expect(s.persistOrder()).rejects.toBeTruthy();
+    });
   });
 
   it("名字变了则产生新对象", () => {

@@ -23,6 +23,18 @@ export const useFavoritesStore = defineStore("favorites", () => {
     return saved;
   }
 
+  /**
+   * 拖动结束后持久化当前顺序。
+   *
+   * 数组顺序即显示顺序，所以直接用本地数组的 id 顺序提交；
+   * 但**以服务端返回的结果替换本地**——Rust 侧的 reorder 对
+   * "缺失/未知 id"有防御处理（见 commands/favorites.rs），
+   * 用权威结果覆盖可以避免本地与服务端不一致。
+   */
+  async function persistOrder(): Promise<void> {
+    items.value = await api.reorderFavorites(items.value.map((f) => f.id));
+  }
+
   async function remove(id: string): Promise<void> {
     await api.deleteFavorite(id);
     items.value = items.value.filter((f) => f.id !== id);
@@ -57,7 +69,17 @@ export const useFavoritesStore = defineStore("favorites", () => {
     });
   }
 
-  return { items, loaded, load, save, remove, findByProject, isFavorited, refreshEnvNames };
+  return {
+    items,
+    loaded,
+    load,
+    save,
+    remove,
+    persistOrder,
+    findByProject,
+    isFavorited,
+    refreshEnvNames,
+  };
 });
 
 // Pinia 的 HMR 支持。

@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { ENVS, fetchProjects, fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
 import type { CommitInfo, DeployType, Project } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
-import { saveFavorite } from "@/api/favorites";
+import { useFavoritesStore } from "@/stores/favorites";
 import { useTabsStore } from "@/stores/tabs";
 import { useTasksStore } from "@/stores/tasks";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
@@ -96,6 +96,7 @@ async function pickBranch(branch: string): Promise<void> {
 
 const tabs = useTabsStore();
 const tasks = useTasksStore();
+const favorites = useFavoritesStore();
 
 const submitting = ref(false);
 const confirmOpen = ref(false);
@@ -139,7 +140,10 @@ async function doSubmit(): Promise<void> {
 async function onSaveFavorite(): Promise<void> {
   if (!selectedProject.value || !selectedBranch.value || envId.value === null) return;
   try {
-    await saveFavorite({
+    // 必须走 store 而不是直接调 api/favorites：
+    // 收藏页读的是 store.items，绕过 store 会让它停留在旧列表
+    // （实测：保存成功但收藏页看不到）。
+    await favorites.save({
       id: "",
       type: "config",
       deployType: deployType.value,

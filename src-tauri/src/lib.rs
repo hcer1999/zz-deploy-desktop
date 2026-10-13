@@ -58,6 +58,7 @@ pub fn run() {
             commands::favorites::favorites_list,
             commands::favorites::favorites_save,
             commands::favorites::favorites_delete,
+            commands::favorites::favorites_reorder,
             net::command::http_request,
         ])
         .run(tauri::generate_context!())

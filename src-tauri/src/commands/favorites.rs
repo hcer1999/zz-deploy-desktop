@@ -67,6 +67,30 @@ pub fn remove(list: &mut Vec<Favorite>, id: &str) {
     list.retain(|f| f.id != id);
 }
 
+/// 按给定的 id 顺序重排。
+///
+/// 防御性设计：
+/// - `ids` 里不存在的 id 直接忽略
+/// - `list` 里未被 `ids` 提及的项，按**原相对顺序**追加到末尾
+/// - 重复 id 只取一次
+///
+/// 即一次重排**绝不会丢数据**。前端传来的顺序表若有缺失（比如并发新增了
+/// 一条收藏而 UI 还没刷新），那些项会安全地留在末尾。
+pub fn reorder(list: &[Favorite], ids: &[String]) -> Vec<Favorite> {
+    let mut remaining: Vec<&Favorite> = list.iter().collect();
+    let mut out: Vec<Favorite> = Vec::with_capacity(list.len());
+
+    for id in ids {
+        // 只在 remaining 里找，找到就移走，天然避免重复
+        if let Some(pos) = remaining.iter().position(|f| &f.id == id) {
+            out.push(remaining.remove(pos).clone());
+        }
+    }
+    // 未被提及的按原顺序接上
+    out.extend(remaining.into_iter().cloned());
+    out
+}
+
 fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Favorite>, AppError> {
     let store = app
         .store(STORE_FILE)
@@ -111,6 +135,19 @@ pub async fn favorites_save<R: Runtime>(
     let saved = upsert(&mut list, fav, now_ms);
     save_all(&app, &list)?;
     Ok(saved)
+}
+
+/// 按给定的 id 顺序重排收藏。数组顺序即显示顺序。
+/// 返回重排后的完整列表，供前端直接替换本地状态。
+#[tauri::command]
+pub async fn favorites_reorder<R: Runtime>(
+    app: AppHandle<R>,
+    ids: Vec<String>,
+) -> Result<Vec<Favorite>, AppError> {
+    let list = load_all(&app)?;
+    let reordered = reorder(&list, &ids);
+    save_all(&app, &reordered)?;
+    Ok(reordered)
 }
 
 #[tauri::command]
@@ -251,5 +288,66 @@ mod tests {
         let text = serde_json::to_string(&original).unwrap();
         let back: Favorite = serde_json::from_str(&text).unwrap();
         assert_eq!(dedupe_key(&back), dedupe_key(&original));
+    }
+
+    #[test]
+    fn reorder_follows_given_id_order() {
+        let mut list = vec![];
+        let a = upsert(&mut list, fav(1, 1, "auto", None), 1000);
+        let b = upsert(&mut list, fav(2, 1, "auto", None), 1001);
+        let c = upsert(&mut list, fav(3, 1, "auto", None), 1002);
+
+        let out = reorder(&list, &[c.id.clone(), a.id.clone(), b.id.clone()]);
+        assert_eq!(
+            out.iter().map(|f| f.project_id).collect::<Vec<_>>(),
+            vec![3, 1, 2]
+        );
+    }
+
+    #[test]
+    fn reorder_ignores_unknown_ids() {
+        let mut list = vec![];
+        let a = upsert(&mut list, fav(1, 1, "auto", None), 1000);
+        let out = reorder(&list, &["no-such-id".to_string(), a.id.clone()]);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].project_id, 1);
+    }
+
+    #[test]
+    fn reorder_appends_items_missing_from_ids() {
+        // 防御前端传了不完整的顺序表：未提及的项按原相对顺序追加到末尾，
+        // 绝不能因为一次重排而丢数据
+        let mut list = vec![];
+        let a = upsert(&mut list, fav(1, 1, "auto", None), 1000);
+        let b = upsert(&mut list, fav(2, 1, "auto", None), 1001);
+        let c = upsert(&mut list, fav(3, 1, "auto", None), 1002);
+
+        let out = reorder(&list, &[c.id.clone()]);
+        assert_eq!(
+            out.iter().map(|f| f.project_id).collect::<Vec<_>>(),
+            vec![3, 1, 2]
+        );
+        let _ = (a, b);
+    }
+
+    #[test]
+    fn reorder_with_empty_ids_keeps_original_order() {
+        let mut list = vec![];
+        upsert(&mut list, fav(1, 1, "auto", None), 1000);
+        upsert(&mut list, fav(2, 1, "auto", None), 1001);
+        let out = reorder(&list, &[]);
+        assert_eq!(
+            out.iter().map(|f| f.project_id).collect::<Vec<_>>(),
+            vec![1, 2]
+        );
+    }
+
+    #[test]
+    fn reorder_does_not_duplicate_on_repeated_ids() {
+        // 前端理论上不会传重复 id，但传了也不能把同一项放进去两次
+        let mut list = vec![];
+        let a = upsert(&mut list, fav(1, 1, "auto", None), 1000);
+        let out = reorder(&list, &[a.id.clone(), a.id.clone()]);
+        assert_eq!(out.len(), 1);
     }
 }
