@@ -8,6 +8,7 @@ import {
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
+import { useSettingsStore } from "@/stores/settings";
 import { setOpenLog } from "@/stores/tabPayload";
 import type { DeployTask } from "@/api/parser";
 
@@ -50,6 +51,7 @@ function wasBuilding(status: string): boolean {
 export function useBuildNotifications() {
   const tasks = useTasksStore();
   const tabs = useTabsStore();
+  const settings = useSettingsStore();
 
   /** 记录上一次看到的构建状态，用于 diff */
   let lastSeen = new Map<number, string>();
@@ -62,8 +64,9 @@ export function useBuildNotifications() {
 
     void (async () => {
       if (!(await ensurePermission())) return;
-      // 默认仅窗口失焦时通知（spec §6.2），避免你正看着界面还被弹
-      if (await getCurrentWindow().isFocused()) return;
+      // 触发条件由设置决定（spec §6.2）：默认仅窗口失焦时通知，
+      // 避免你正看着界面还被弹；改成"始终通知"就一律弹。
+      if (settings.notifyMode !== "always" && (await getCurrentWindow().isFocused())) return;
       sendNotification({
         // id 用 taskId：点击通知时靠它找回是哪个任务（见 focusTask）
         id: t.taskId,

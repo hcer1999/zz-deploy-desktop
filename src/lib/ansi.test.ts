@@ -115,4 +115,14 @@ describe("ingest - 上限保护", () => {
     expect(b.lines.filter((l) => l.text.includes("aaaa")).length).toBe(1);
     expect(b.lines[b.lines.length - 1].text).toContain("90%");
   });
+
+  it("长时间不出换行的输出不会让 pending 无限增长", () => {
+    const b = createLogBuffer();
+    // 超过 64KB 上限的一大块：应被当作一整行收下，而不是继续堆积
+    const huge = "x".repeat(70 * 1024);
+    ingest(b, huge);
+    expect(b.pending.length).toBeLessThan(huge.length);
+    expect(b.lines).toHaveLength(1);
+    expect(b.lines[0].text.length).toBe(huge.length);
+  });
 });

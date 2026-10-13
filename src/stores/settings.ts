@@ -6,6 +6,7 @@ import { useAuthStore } from "./auth";
 
 export type ThemeMode = "system" | "dark" | "light";
 export type CloseBehavior = "tray" | "quit";
+export type NotifyMode = "unfocused" | "always";
 
 /**
  * 持久化配置的**唯一持有者**（baseUrl、主题、关闭行为、轮询间隔）。
@@ -24,6 +25,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const pollIntervalSecs = ref(60);
   const logRetentionDays = ref(30);
   const logRetentionEntries = ref(500);
+  const notifyMode = ref<NotifyMode>("unfocused");
   const loaded = ref(false);
 
   function apply(c: configApi.AppConfig): void {
@@ -34,6 +36,7 @@ export const useSettingsStore = defineStore("settings", () => {
     pollIntervalSecs.value = c.pollIntervalSecs;
     logRetentionDays.value = c.logRetentionDays;
     logRetentionEntries.value = c.logRetentionEntries;
+    notifyMode.value = c.notifyMode;
     loaded.value = true;
   }
 
@@ -72,6 +75,7 @@ export const useSettingsStore = defineStore("settings", () => {
       pollIntervalSecs: partial.pollIntervalSecs ?? pollIntervalSecs.value,
       logRetentionDays: partial.logRetentionDays ?? logRetentionDays.value,
       logRetentionEntries: partial.logRetentionEntries ?? logRetentionEntries.value,
+      notifyMode: partial.notifyMode ?? notifyMode.value,
     });
     apply(next);
   }
@@ -84,6 +88,7 @@ export const useSettingsStore = defineStore("settings", () => {
     pollIntervalSecs,
     logRetentionDays,
     logRetentionEntries,
+    notifyMode,
     loaded,
     load,
     changeBaseUrl,

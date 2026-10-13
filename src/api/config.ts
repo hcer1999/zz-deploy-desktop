@@ -8,6 +8,8 @@ export interface AppConfig {
   pollIntervalSecs: number;
   logRetentionDays: number;
   logRetentionEntries: number;
+  /** "unfocused"（仅窗口失焦时，默认）| "always"	*/
+  notifyMode: "unfocused" | "always";
 }
 
 export function getConfig(): Promise<AppConfig> {

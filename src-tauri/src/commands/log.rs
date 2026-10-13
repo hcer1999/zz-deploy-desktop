@@ -79,9 +79,8 @@ pub async fn log_open<R: Runtime>(
     project_name: String,
     env_name: String,
 ) -> Result<String, AppError> {
-    // 只有被主动打开过的任务才落盘
-    store.note_open(&deploy_type, task_id, &project_name, &env_name)?;
-
+    // 先确认会话可用再落索引：否则未登录时的失败调用也会在历史里
+    // 留下一条 size=0 的空记录
     let client = session.client().await;
     let cookie = client
         .cookie_header()
@@ -89,6 +88,9 @@ pub async fn log_open<R: Runtime>(
         .ok_or_else(|| AppError::auth("没有可用会话，请重新登录"))?;
     let base_url = client.base_url().to_string();
     drop(client);
+
+    // 只有被主动打开过的任务才落盘
+    store.note_open(&deploy_type, task_id, &project_name, &env_name)?;
 
     let url = format!(
         "{}/wssapp/",
@@ -164,17 +166,25 @@ pub async fn log_open<R: Runtime>(
     // `tauri::async_runtime::JoinHandle` 只暴露 `inner()`/`abort()`，
     // 而 JoinHandle 本身要交给回收任务 await，所以取它的 AbortHandle 存进表里。
     let abort = handle.inner().abort_handle();
-    sessions
-        .inner
-        .lock()
-        .await
-        .insert(session_id.clone(), LogSession { handle: abort });
+    let active = {
+        let mut map = sessions.inner.lock().await;
+        map.insert(session_id.clone(), LogSession { handle: abort });
+        map.len()
+    };
+    // 托盘上显示进行中的构建数（spec §6.1）；放到锁外调用，避免持锁做 UI 操作
+    crate::tray::set_active_builds(&app, active);
 
     let reaper = sessions_inner;
     let sid_for_reaper = session_id.clone();
+    let app_for_reaper = app.clone();
     tauri::async_runtime::spawn(async move {
         let _ = handle.await;
-        reaper.lock().await.remove(&sid_for_reaper);
+        let active = {
+            let mut map = reaper.lock().await;
+            map.remove(&sid_for_reaper);
+            map.len()
+        };
+        crate::tray::set_active_builds(&app_for_reaper, active);
     });
 
     Ok(session_id)
@@ -182,12 +192,17 @@ pub async fn log_open<R: Runtime>(
 
 /// 关闭日志标签页时调用：中止后台任务，停止落盘
 #[tauri::command]
-pub async fn log_close(
+pub async fn log_close<R: Runtime>(
+    app: AppHandle<R>,
     sessions: State<'_, LogSessions>,
     session_id: String,
 ) -> Result<(), AppError> {
-    if let Some(s) = sessions.inner.lock().await.remove(&session_id) {
+    // 先把要 abort 的取出来，避免把锁带进后面的 lock()（tokio 的 Mutex 不可重入）
+    let removed = sessions.inner.lock().await.remove(&session_id);
+    if let Some(s) = removed {
         s.handle.abort();
     }
+    let active = sessions.inner.lock().await.len();
+    crate::tray::set_active_builds(&app, active);
     Ok(())
 }

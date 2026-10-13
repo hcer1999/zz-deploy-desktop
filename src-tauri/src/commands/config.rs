@@ -21,6 +21,8 @@ pub struct AppConfig {
     pub log_retention_days: u64,
     /// 日志留存条数上限（spec §6.3，默认 500）
     pub log_retention_entries: usize,
+    /// 构建完成通知的触发条件："unfocused"（仅窗口失焦时，默认）| "always"（spec §6.2）
+    pub notify_mode: String,
 }
 
 impl Default for AppConfig {
@@ -33,6 +35,7 @@ impl Default for AppConfig {
             poll_interval_secs: 60,
             log_retention_days: 30,
             log_retention_entries: 500,
+            notify_mode: "unfocused".to_string(),
         }
     }
 }
@@ -60,6 +63,13 @@ fn clamp_retention_days(v: u64) -> u64 {
 
 fn clamp_retention_entries(v: u64) -> usize {
     v.clamp(1, 10_000) as usize
+}
+
+fn normalize_notify_mode(v: &str) -> String {
+    match v {
+        "always" | "unfocused" => v.to_string(),
+        _ => "unfocused".to_string(),
+    }
 }
 
 pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
@@ -95,6 +105,9 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
     if let Some(v) = store.get("logRetentionEntries").and_then(|v| v.as_u64()) {
         cfg.log_retention_entries = clamp_retention_entries(v);
     }
+    if let Some(v) = get_str("notifyMode") {
+        cfg.notify_mode = normalize_notify_mode(&v);
+    }
     Ok(cfg)
 }
 
@@ -122,7 +135,13 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, cfg: &AppConfig) -> Result<(), AppEr
     );
     store.set(
         "logRetentionEntries",
-        serde_json::json!(clamp_retention_entries(cfg.log_retention_entries as u64)),
+        serde_json::json!(clamp_retention_entries(
+            cfg.log_retention_entries as u64
+        )),
+    );
+    store.set(
+        "notifyMode",
+        serde_json::json!(normalize_notify_mode(&cfg.notify_mode)),
     );
     store
         .save()
@@ -185,6 +204,12 @@ mod tests {
     }
 
     #[test]
+    fn invalid_notify_mode_falls_back_to_unfocused() {
+        assert_eq!(normalize_notify_mode("whenever"), "unfocused");
+        assert_eq!(normalize_notify_mode("always"), "always");
+    }
+
+    #[test]
     fn config_serializes_with_camel_case_keys() {
         let v = serde_json::to_value(AppConfig::default()).unwrap();
         assert!(v.get("baseUrl").is_some());
@@ -192,6 +217,7 @@ mod tests {
         assert!(v.get("closeBehavior").is_some());
         assert!(v.get("logRetentionDays").is_some());
         assert!(v.get("logRetentionEntries").is_some());
+        assert!(v.get("notifyMode").is_some());
     }
 
     #[test]
@@ -204,6 +230,7 @@ mod tests {
             poll_interval_secs: 120,
             log_retention_days: 7,
             log_retention_entries: 42,
+            notify_mode: "always".to_string(),
         };
         let text = serde_json::to_string(&original).unwrap();
         let back: AppConfig = serde_json::from_str(&text).unwrap();
@@ -212,5 +239,6 @@ mod tests {
         assert_eq!(back.poll_interval_secs, original.poll_interval_secs);
         assert_eq!(back.log_retention_days, 7);
         assert_eq!(back.log_retention_entries, 42);
+        assert_eq!(back.notify_mode, "always");
     }
 }

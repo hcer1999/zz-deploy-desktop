@@ -23,6 +23,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 }));
 
 import { useBuildNotifications } from "./useBuildNotifications";
+import { useSettingsStore } from "@/stores/settings";
 import { useTasksStore } from "@/stores/tasks";
 
 function task(id: number, buildStatus: string): DeployTask {
@@ -97,6 +98,22 @@ describe("useBuildNotifications", () => {
     await settle();
 
     expect(sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("设为「始终通知」时窗口聚焦也弹", async () => {
+    isFocused.mockResolvedValue(true);
+    useSettingsStore().notifyMode = "always";
+
+    const tasks = useTasksStore();
+    tasks.tasks = [task(1008, "构建中")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(1008, "构建成功")];
+    notify.onLogFinished(1008);
+    await settle();
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
   });
 
   it("两个触发点命中同一任务时只弹一条", async () => {

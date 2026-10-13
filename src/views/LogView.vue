@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { openLog } from "@/stores/tabPayload";
 import { useLogsStore } from "@/stores/logs";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,9 @@ const error = ref("");
 
 const session = computed(() => (sessionId.value ? logs.sessions[sessionId.value] : undefined));
 
+/** 标签在 log_open 返回前就被关掉时置位，拿到 sessionId 后立即释放连接 */
+let disposed = false;
+
 onMounted(async () => {
   const payload = openLog(props.tabId);
   if (!payload) {
@@ -21,10 +24,21 @@ onMounted(async () => {
     return;
   }
   try {
-    sessionId.value = await logs.open(payload);
+    const sid = await logs.open(payload);
+    if (disposed) {
+      // 关标签时 Rust 还没返回 sessionId（tabs.close 的 closeByTask 自然拿不到它），
+      // 这里补一刀，不然会在 Rust 侧留下一个没人看的长连接
+      void logs.close(sid);
+      return;
+    }
+    sessionId.value = sid;
   } catch (e) {
     error.value = String(e);
   }
+});
+
+onBeforeUnmount(() => {
+  disposed = true;
 });
 
 // 自动滚动到底部（关闭时保留用户位置）

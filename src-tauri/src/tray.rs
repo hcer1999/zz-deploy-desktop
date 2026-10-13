@@ -76,3 +76,19 @@ pub fn reveal_main<R: Runtime>(app: &AppHandle<R>) {
         let _ = w.set_focus();
     }
 }
+
+/// 有进行中的构建时，在托盘图标旁显示数量（spec §6.1）。
+///
+/// 平台支持不一致（Windows 不支持 set_title），失败就忽略——
+/// 这是预期的优雅降级，不影响托盘本身可用。
+pub fn set_active_builds<R: Runtime>(app: &AppHandle<R>, count: usize) {
+    let Some(tray) = app.tray_by_id("main-tray") else {
+        return;
+    };
+    let title = if count > 0 {
+        Some(count.to_string())
+    } else {
+        None
+    };
+    let _ = tray.set_title(title);
+}

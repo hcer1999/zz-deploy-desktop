@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
+import { getVersion } from "@tauri-apps/api/app";
+import { platform } from "@tauri-apps/plugin-os";
 import { useSettingsStore } from "@/stores/settings";
 import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
@@ -31,6 +33,9 @@ onMounted(async () => {
   themeStore.apply(settings.theme);
   // 日志占用空间要现算，不然在历史页删过之后这里会显示旧值
   void history.load();
+  // 关于分组：版本来自 tauri.conf.json，平台由 plugin-os 提供
+  version.value = await getVersion();
+  currentPlatform.value = platform();
 });
 
 // 地址在别处被改动时，输入框跟着更新，避免用户看到陈旧的草稿
@@ -80,6 +85,15 @@ const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: "⌘/Ctrl + ,", action: "打开设置" },
 ];
 
+const version = ref("");
+const currentPlatform = ref("");
+const PLATFORM_LABEL: Record<string, string> = {
+  macos: "macOS",
+  windows: "Windows",
+  linux: "Linux",
+};
+const platformLabel = computed(() => PLATFORM_LABEL[currentPlatform.value] ?? currentPlatform.value);
+
 function sizeText(bytes: number): string {  if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -92,6 +106,14 @@ function sizeText(bytes: number): string {  if (bytes < 1024) return `${bytes} B
 async function onRetentionEntriesChange(e: Event): Promise<void> {
   const n = Number((e.target as HTMLInputElement).value);
   await settings.patch({ logRetentionEntries: n });
+  const removed = await history.applyRetention();
+  showFlash(removed > 0 ? `已按新策略删除 ${removed} 条` : "已按新策略清理");
+}
+
+/** 天数同理：改完立刻清一次，否则要等下次启动才生效 */
+async function onRetentionDaysChange(e: Event): Promise<void> {
+  const n = Number((e.target as HTMLInputElement).value);
+  await settings.patch({ logRetentionDays: n });
   const removed = await history.applyRetention();
   showFlash(removed > 0 ? `已按新策略删除 ${removed} 条` : "已按新策略清理");
 }
@@ -191,6 +213,22 @@ async function doClearLogs(): Promise<void> {
       <p class="text-[11px] text-text-muted">
         关闭到托盘后，应用会常驻系统托盘；构建完成且窗口不在前台时会发系统通知。
       </p>
+
+      <!-- spec §6.2：通知触发条件可配（默认仅窗口失焦时） -->
+      <div class="space-y-1.5 pt-1">
+        <Label class="font-normal">构建完成通知</Label>
+        <div class="flex gap-2">
+          <Button
+            v-for="m in (['unfocused', 'always'] as const)"
+            :key="m"
+            :variant="settings.notifyMode === m ? 'default' : 'outline'"
+            size="sm"
+            @click="settings.patch({ notifyMode: m })"
+          >
+            {{ m === "unfocused" ? "仅窗口失焦时" : "始终通知" }}
+          </Button>
+        </div>
+      </div>
     </section>
 
     <section class="space-y-3">
@@ -203,10 +241,7 @@ async function doClearLogs(): Promise<void> {
           :model-value="String(settings.logRetentionDays)"
           min="1"
           max="3650"
-          @change="
-            (e: Event) =>
-              settings.patch({ logRetentionDays: Number((e.target as HTMLInputElement).value) })
-          "
+          @change="onRetentionDaysChange"
         />
       </div>
       <div class="space-y-1.5">
@@ -241,7 +276,15 @@ async function doClearLogs(): Promise<void> {
     <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
 
     <section class="space-y-2">
-      <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider">快捷键</h2>
+      <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider">关于</h2>
+      <div class="flex items-center justify-between text-xs py-1">
+        <span class="text-text-muted">版本</span>
+        <span class="font-mono text-[11px]">{{ version || "—" }}</span>
+      </div>
+      <div class="flex items-center justify-between text-xs py-1">
+        <span class="text-text-muted">当前平台</span>
+        <span>{{ platformLabel || "—" }}</span>
+      </div>
       <table class="w-full text-xs">
         <tbody>
           <tr

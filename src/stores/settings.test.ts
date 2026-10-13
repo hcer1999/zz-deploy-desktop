@@ -22,6 +22,7 @@ const CONFIG: configApi.AppConfig = {
   pollIntervalSecs: 60,
   logRetentionDays: 30,
   logRetentionEntries: 500,
+  notifyMode: "unfocused",
 };
 
 describe("settings store", () => {
@@ -86,6 +87,20 @@ describe("settings store", () => {
     const sent = vi.mocked(configApi.setConfig).mock.calls[0][0];
     expect(sent.logRetentionDays).toBe(7);
     expect(sent.logRetentionEntries).toBe(120);
+  });
+
+  it("patch 只改通知触发条件时不会把其它字段写成默认值", async () => {
+    vi.mocked(configApi.getConfig).mockResolvedValue(CONFIG);
+    vi.mocked(configApi.setConfig).mockImplementation(async (p) => p);
+
+    const s = useSettingsStore();
+    await s.load();
+    await s.patch({ notifyMode: "always" });
+
+    const sent = vi.mocked(configApi.setConfig).mock.calls[0][0];
+    expect(sent.notifyMode).toBe("always");
+    expect(sent.logRetentionDays).toBe(30);
+    expect(sent.username).toBe("zhangsan");
   });
 
   it("patch 后本地状态跟随服务端返回值", async () => {

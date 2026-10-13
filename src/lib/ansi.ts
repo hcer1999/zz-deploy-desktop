@@ -18,6 +18,14 @@ export interface LogBuffer {
 
 const DEFAULT_MAX_LINES = 5000;
 
+/**
+ * 未遇到换行的残留片段上限。
+ *
+ * 没有它时，一段不含换行的长输出（或永远不结束的进度行）会让 pending 无限增长，
+ * 而且每来一块都要把整串重剔一次 ANSI（O(n²)）。超限就直接当一整行落下来。
+ */
+const MAX_PENDING = 64 * 1024;
+
 export function createLogBuffer(opts?: { maxLines?: number }): LogBuffer {
   return {
     lines: [],
@@ -75,6 +83,9 @@ export function ingest(buf: LogBuffer, chunk: string): void {
     if (!line.trim()) continue;
     pushLine(buf, line);
   }
+
+  // 迟迟等不到换行的超长片段：直接收尾，保证内存有界
+  if (buf.pending.length > MAX_PENDING) flush(buf);
 }
 
 /** 流结束时把残留片段作为最后一行收尾 */
