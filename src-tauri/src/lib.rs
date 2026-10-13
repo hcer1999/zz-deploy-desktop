@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod error;
+pub mod logs;
 pub mod net;
 pub mod secure;
 pub mod session;
@@ -28,6 +29,12 @@ pub fn run() {
             let (tx, _rx) = tokio::sync::broadcast::channel::<String>(16);
             state.set_expired_sender(tx.clone());
             app.manage(state);
+
+            // 构建日志：本地留存 + 活跃会话表
+            app.manage(crate::logs::store::LogStore::new(
+                crate::logs::store::logs_root(&app_data_dir),
+            ));
+            app.manage(commands::log::LogSessions::new());
 
             let mut rx = tx.subscribe();
             let emit_handle = app.handle().clone();
@@ -61,6 +68,8 @@ pub fn run() {
             commands::favorites::favorites_delete,
             commands::favorites::favorites_reorder,
             net::command::http_request,
+            commands::log::log_open,
+            commands::log::log_close,
         ])
         .run(tauri::generate_context!())
         .expect("启动 Tauri 应用失败");
