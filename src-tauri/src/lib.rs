@@ -3,6 +3,7 @@ pub mod error;
 pub mod net;
 pub mod secure;
 pub mod session;
+pub mod ws;
 
 use tauri::{Emitter, Manager};
 

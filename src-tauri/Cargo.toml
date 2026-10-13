@@ -24,10 +24,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 reqwest = { version = "0.12", features = ["cookies", "gzip", "brotli"] }
 url = "2"
-tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "time", "net"] }
 aes-gcm = "0.10"
 rand = "0.8"
 tauri-plugin-store = "2"
+# rustls-tls-native-roots 而非 native-tls：避免平台 OpenSSL 差异，三端行为一致
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+futures-util = "0.3"
 
 # keyring 必须分平台声明：若把 sync-secret-service 写进通用依赖，
 # macOS 构建也会被拉入 D-Bus 相关依赖。
