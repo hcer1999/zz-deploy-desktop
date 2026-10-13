@@ -31,6 +31,9 @@ tauri-plugin-store = "2"
 # rustls-tls-native-roots 而非 native-tls：避免平台 OpenSSL 差异，三端行为一致
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
+# 必须显式指定加密后端：tokio-tungstenite 的 rustls 特性没有带 provider，
+# 缺它时首个 wss:// 连接会 panic（release 下 panic=abort → 应用闪退）
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 

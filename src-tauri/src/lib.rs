@@ -14,6 +14,10 @@ use session::SessionState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // 最早的时机安装 TLS 加密后端：缺它时首个 wss:// 连接会 panic，
+    // 而 release 是 panic=abort，表现为点「Log」应用直接闪退。
+    ws::log_socket::ensure_tls_provider();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())

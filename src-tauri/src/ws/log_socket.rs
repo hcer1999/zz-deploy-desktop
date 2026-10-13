@@ -140,6 +140,21 @@ pub fn backoff_delay(attempt: u32) -> Duration {
     Duration::from_millis(3000 * 2u64.pow(attempt.min(3)))
 }
 
+/// 安装进程级默认加密后端（幂等）。
+///
+/// **必须在任何 `wss://` 连接之前调用**：tokio-tungstenite 在 TLS 握手时会构造
+/// `rustls::ClientConfig`，而 rustls 0.23 若拿不到默认 `CryptoProvider` 就直接 panic
+/// （tokio-tungstenite 的 rustls 特性不带 provider）。本项目的 release 配置是
+/// `panic = "abort"`，所以那个 panic 的表现是**整个应用瞬间退出**——
+/// 见测试 `wss_path_can_build_a_tls_config`。
+///
+/// 这里不依赖 rustls 的"按 crate feature 自动挑选"：一旦将来有别的依赖也启用
+/// 另一种 provider，自动挑选会变成 "multiple CryptoProviders" panic。
+pub fn ensure_tls_provider() {
+    // 已经装过时返回 Err，属正常情况
+    let _ = rustls::crypto::ring::default_provider().install_default();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,5 +314,46 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.kind, crate::error::ErrorKind::Network);
+    }
+
+    /// 真实服务端是 `wss://`，而本文件其它测试用的是本地 `ws://`——
+    /// 所以 TLS 分支一直没被测到：rustls 拿不到默认 `CryptoProvider` 时会 panic，
+    /// 配上 release 的 `panic = "abort"`，表现就是"点一下 Log 应用直接消失"。
+    ///
+    /// 这里用一个"接受连接但不是 TLS"的本地服务端：
+    /// TCP 连得上 → tokio-tungstenite 会执行 ClientConfig 构造（panic 点）
+    /// → 握手失败返回错误。因此只要 provider 缺失，本用例就会 panic 报错。
+    #[tokio::test]
+    async fn wss_connect_builds_tls_config_without_panicking() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            if let Ok((stream, _)) = listener.accept().await {
+                // 立即断开，让 TLS 握手快速失败，而不是把测试挂在那里
+                drop(stream);
+            }
+        });
+
+        let err = connect_and_stream(
+            &format!("wss://{addr}/wssapp/"),
+            "s=1",
+            1,
+            "auto",
+            |_| {},
+            |_| {},
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.kind, crate::error::ErrorKind::Network);
+    }
+
+    /// 显式安装默认 CryptoProvider，避免依赖 rustls 的"按 feature 自动挑选"：
+    /// 一旦将来有别的依赖也启用另一种 provider，自动挑选会变成 panic。
+    #[test]
+    fn tls_provider_is_installed_explicitly() {
+        ensure_tls_provider();
+        assert!(rustls::crypto::CryptoProvider::get_default().is_some());
+        // 重复调用不应出错（run() 与测试可能都会调）
+        ensure_tls_provider();
     }
 }
