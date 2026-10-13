@@ -3054,7 +3054,7 @@ async function confirmDelete(): Promise<void> {
 </script>
 
 <template>
-  <div class="max-w-[860px] p-6 space-y-4">
+  <div class="p-6 space-y-4">
     <h1 class="text-base font-semibold">收藏</h1>
 
     <div v-if="favorites.items.length === 0" class="text-xs text-text-muted py-8 text-center">

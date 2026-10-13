@@ -67,7 +67,7 @@ const backendLabel = (): string =>
 </script>
 
 <template>
-  <div class="max-w-[680px] p-6 space-y-8">
+  <div class="mx-auto max-w-[720px] p-6 space-y-8">
     <section class="space-y-3">
       <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider">服务</h2>
       <div class="space-y-1.5">

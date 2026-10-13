@@ -24,7 +24,13 @@
 :root {
   --deploy-bg: oklch(0.98 0.002 260);
   --deploy-surface: oklch(1 0 0);
-  --deploy-surface-2: oklch(0.975 0.003 260);
+  /*
+   * surface-2 是"次表面"，用作 chip 底色、悬停底色、内嵌面板。
+   * 它必须同时与 bg(0.98) 和 surface(1.0) 拉开距离，否则在浅色下
+   * 会完全看不见（曾经取值 0.975，与 bg 只差 0.005，导致未选中的
+   * 项目/分支按钮看上去是裸文字）。
+   */
+  --deploy-surface-2: oklch(0.94 0.004 260);
   --deploy-border: oklch(0.91 0.005 260);
   --deploy-text: oklch(0.22 0.01 260);
   --deploy-text-muted: oklch(0.52 0.012 260);
