@@ -49,6 +49,13 @@ onMounted(syncVisibility);
 watch(() => tabs.activeId, syncVisibility);
 onUnmounted(() => tasks.stopPolling());
 
+// Cmd/Ctrl+R：只刷新当前页，不做整窗重载（那是浏览器行为，在桌面端没意义）
+function onRefreshShortcut(): void {
+  if (isActive()) void tasks.refresh();
+}
+onMounted(() => window.addEventListener("app://refresh", onRefreshShortcut));
+onUnmounted(() => window.removeEventListener("app://refresh", onRefreshShortcut));
+
 async function doRefresh(): Promise<void> {
   await tasks.refresh();
 }

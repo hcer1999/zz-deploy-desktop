@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
@@ -68,6 +68,13 @@ function syncVisibility(): void {
 
 onMounted(syncVisibility);
 watch(() => tabs.activeId, syncVisibility);
+
+// Cmd/Ctrl+R 的刷新手势（与任务列表一致）
+function onRefreshShortcut(): void {
+  if (tabs.activeTab?.kind === "favorites") void favorites.load();
+}
+onMounted(() => window.addEventListener("app://refresh", onRefreshShortcut));
+onUnmounted(() => window.removeEventListener("app://refresh", onRefreshShortcut));
 
 // ---------- 拖动排序 ----------
 

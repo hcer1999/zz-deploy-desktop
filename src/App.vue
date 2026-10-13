@@ -13,6 +13,7 @@ import { useThemeStore } from "./stores/theme";
 import { useFavoritesStore } from "./stores/favorites";
 import { useBuildNotifications } from "./composables/useBuildNotifications";
 import { registerLogEvents } from "./composables/useLogEvents";
+import { useShortcuts } from "./composables/useShortcuts";
 import { ENVS } from "./api/deploy";
 
 const tabs = useTabsStore();
@@ -21,6 +22,8 @@ const settings = useSettingsStore();
 const theme = useThemeStore();
 // 构建完成通知：本 composable 会在内部完成"状态跃迁 diff"与"通知点击"的订阅
 const notify = useBuildNotifications();
+// 应用级快捷键（Cmd/Ctrl+N/R/W/1-5/,）
+useShortcuts();
 
 onMounted(async () => {
   // 续登失败 → 弹回登录页

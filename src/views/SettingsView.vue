@@ -72,8 +72,15 @@ async function onForget(): Promise<void> {
 const backendLabel = (): string =>
   auth.credentialBackend === "keyring" ? "系统钥匙串" : "加密文件";
 
-function sizeText(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
+const SHORTCUTS: { keys: string; action: string }[] = [
+  { keys: "⌘/Ctrl + N", action: "新建部署" },
+  { keys: "⌘/Ctrl + R", action: "刷新当前标签" },
+  { keys: "⌘/Ctrl + W", action: "关闭当前标签" },
+  { keys: "⌘/Ctrl + 1…5", action: "切换到第 N 个标签" },
+  { keys: "⌘/Ctrl + ,", action: "打开设置" },
+];
+
+function sizeText(bytes: number): string {  if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
@@ -232,6 +239,24 @@ async function doClearLogs(): Promise<void> {
     </section>
 
     <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
+
+    <section class="space-y-2">
+      <h2 class="text-xs font-semibold text-text-muted uppercase tracking-wider">快捷键</h2>
+      <table class="w-full text-xs">
+        <tbody>
+          <tr
+            v-for="row in SHORTCUTS"
+            :key="row.keys"
+            class="border-b border-border last:border-0"
+          >
+            <td class="py-1.5 pr-4 w-40 font-mono text-[11px] text-text-muted whitespace-nowrap">
+              {{ row.keys }}
+            </td>
+            <td class="py-1.5">{{ row.action }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
 
     <ConfirmDialog
       :open="pendingClearLogs"
