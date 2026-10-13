@@ -1,21 +1,35 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted } from "vue";
+import { listen } from "@tauri-apps/api/event";
 import TitleBar from "./components/layout/TitleBar.vue";
 import SideNav from "./components/layout/SideNav.vue";
 import TabBar from "./components/layout/TabBar.vue";
 import WipView from "./views/WipView.vue";
+import LoginView from "./views/LoginView.vue";
 import { useTabsStore } from "./stores/tabs";
+import { useAuthStore } from "./stores/auth";
 
 const tabs = useTabsStore();
+const auth = useAuthStore();
 
 const activeTitle = computed(() => (tabs.activeTab ? tabs.titleOf(tabs.activeTab) : ""));
+
+onMounted(async () => {
+  // 续登失败 → 弹回登录页
+  await listen<string>("auth://expired", (e) => auth.handleExpired(e.payload));
+  // Rust 启动时的静默续登结束 → 刷新一次真实状态
+  await listen("auth://ready", () => auth.refresh());
+  await auth.refresh();
+});
 </script>
 
 <template>
   <div class="h-full flex flex-col bg-bg text-text">
     <TitleBar />
 
-    <div class="flex-1 flex min-h-0">
+    <LoginView v-if="!auth.loggedIn" />
+
+    <div v-else class="flex-1 flex min-h-0">
       <SideNav />
       <div class="flex-1 flex flex-col min-w-0">
         <TabBar />
