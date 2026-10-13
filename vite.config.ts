@@ -41,4 +41,10 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
   },
+
+  build: {
+    // 桌面应用的资源从本地磁盘加载，不涉及按需下载，单包体积大没有实际影响。
+    // 目前约 540KB，主要来自 cheerio（HTML 解析，spec §1 明确要求复用）。
+    chunkSizeWarningLimit: 700,
+  },
 });

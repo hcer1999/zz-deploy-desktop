@@ -1,5 +1,3 @@
-use crate::error::AppError;
-
 /// 从 cookie 字符串里取出 `csrftoken` 的值。
 ///
 /// 对应插件 `src/api/client.ts:43` 的 `cookie.match(/csrftoken=([^;]+)/)`。
@@ -22,12 +20,22 @@ pub fn with_csrf(mut form: Vec<(String, String)>, token: &str) -> Vec<(String, S
     form
 }
 
-/// 从请求头形式的 cookie 串里读出 CSRF；读不到时报 Auth 错误。
-/// 没有 CSRF 的 POST 一定会被服务端拒绝，早报错比让服务端报 403 更清晰。
-pub fn require_csrf(cookie_header: Option<&str>) -> Result<String, AppError> {
-    cookie_header
-        .and_then(extract_csrf)
-        .ok_or_else(|| AppError::auth("cookie 中缺少 csrftoken，请重新登录"))
+/// 尽量取出 CSRF；取不到时返回**空串**。
+///
+/// 这里刻意不做强制校验。依据有两条，都是实测得到的：
+///
+/// 1. ITSM **根本不下发 csrftoken cookie**——登录前后都只有 sessionid。
+///    见 `examples/probe_cookies.rs` 的输出。
+/// 2. 已在线运行的插件在取不到 csrftoken 时也是发空值
+///    （`src/api/client.ts:43-45`），而部署功能一直正常。
+///
+/// 即服务端并未启用 CSRF 校验，这个 cookie 从来不是必需项。
+/// 早期实现写成"缺失就报错"，导致提交部署直接失败。
+///
+/// 保留该字段是为了对齐插件行为：若将来服务端补上 csrftoken，
+/// 这里会自然带上真实值，无需再改。
+pub fn csrf_or_empty(cookie_header: Option<&str>) -> String {
+    cookie_header.and_then(extract_csrf).unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -80,11 +88,14 @@ mod tests {
     }
 
     #[test]
-    fn require_csrf_reports_auth_error_when_missing() {
-        let err = require_csrf(Some("sessionid=abc")).unwrap_err();
-        assert_eq!(err.kind, crate::error::ErrorKind::Auth);
+    fn csrf_or_empty_returns_empty_when_missing() {
+        // 服务端不下发 csrftoken 是常态，绝不能因此报错
+        assert_eq!(csrf_or_empty(Some("sessionid=abc")), "");
+        assert_eq!(csrf_or_empty(None), "");
+    }
 
-        let err = require_csrf(None).unwrap_err();
-        assert_eq!(err.kind, crate::error::ErrorKind::Auth);
+    #[test]
+    fn csrf_or_empty_returns_real_token_when_present() {
+        assert_eq!(csrf_or_empty(Some("sessionid=abc; csrftoken=T0K")), "T0K");
     }
 }

@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ENVS, fetchProjects, fetchBranches, fetchCommits } from "@/api/deploy";
+import { ENVS, fetchProjects, fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
 import type { CommitInfo, DeployType, Project } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
+import { saveFavorite } from "@/api/favorites";
+import { useTabsStore } from "@/stores/tabs";
+import { useTasksStore } from "@/stores/tasks";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
+import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -85,6 +89,71 @@ async function pickBranch(branch: string): Promise<void> {
     error.value = toUserMessage(e);
   } finally {
     loading.value.commits = false;
+  }
+}
+
+// ---------- 提交 ----------
+
+const tabs = useTabsStore();
+const tasks = useTasksStore();
+
+const submitting = ref(false);
+const confirmOpen = ref(false);
+const favPromptOpen = ref(false);
+const flash = ref("");
+
+function flashMsg(msg: string): void {
+  flash.value = msg;
+  setTimeout(() => (flash.value = ""), 3000);
+}
+
+async function doSubmit(): Promise<void> {
+  if (!selectedProject.value || !selectedBranch.value || !selectedCommit.value) return;
+  submitting.value = true;
+  error.value = "";
+  try {
+    const ok = await submitDeploy(deployType.value, selectedProject.value.id, {
+      title: title.value,
+      branchtag: selectedBranch.value,
+      version: selectedCommit.value,
+    });
+    confirmOpen.value = false;
+    if (!ok) {
+      error.value = "提交失败，请重试";
+      return;
+    }
+    // 提交成功：让任务列表切到对应类型与第 1 页，然后跳过去
+    tasks.deployType = deployType.value;
+    tasks.page = 1;
+    tabs.open({ kind: "list" });
+    // 向导的使命结束了，关掉它（可能同时开着多个，全部关掉）
+    tabs.closeByKind("wizard");
+  } catch (e) {
+    confirmOpen.value = false;
+    error.value = toUserMessage(e);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function onSaveFavorite(): Promise<void> {
+  if (!selectedProject.value || !selectedBranch.value || envId.value === null) return;
+  try {
+    await saveFavorite({
+      id: "",
+      type: "config",
+      deployType: deployType.value,
+      envId: envId.value,
+      envName: envName.value,
+      projectId: selectedProject.value.id,
+      projectName: selectedProject.value.name,
+      branch: selectedBranch.value,
+    });
+    favPromptOpen.value = false;
+    flashMsg("已保存为收藏");
+  } catch (e) {
+    favPromptOpen.value = false;
+    error.value = toUserMessage(e);
   }
 }
 </script>
@@ -169,14 +238,42 @@ async function pickBranch(branch: string): Promise<void> {
       </select>
     </section>
 
-    <section v-if="selectedCommit" class="pt-2 border-t border-border space-y-2">
-      <Label for="deploy-title">任务标题（留空则由服务端生成）</Label>
-      <Input id="deploy-title" v-model="title" class="h-8 max-w-[760px]" placeholder="可选" />
+    <section v-if="selectedCommit" class="pt-3 border-t border-border space-y-3">
+      <div class="space-y-1.5">
+        <Label for="deploy-title">任务标题（留空则由服务端生成）</Label>
+        <Input id="deploy-title" v-model="title" class="h-8 max-w-[760px]" placeholder="可选" />
+      </div>
       <p class="text-xs text-text-muted">
         即将部署：{{ envName }} / {{ selectedProject?.name }} / {{ selectedBranch }}
       </p>
+      <div class="flex gap-2">
+        <Button :disabled="submitting" @click="confirmOpen = true">
+          {{ submitting ? "提交中…" : "确认提交部署" }}
+        </Button>
+        <Button variant="outline" :disabled="submitting" @click="favPromptOpen = true">
+          保存为收藏
+        </Button>
+      </div>
+      <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
     </section>
 
     <p v-if="error" class="text-xs text-danger">{{ error }}</p>
+
+    <ConfirmDialog
+      v-model:open="confirmOpen"
+      title="确认提交部署？"
+      :description="`${envName} / ${selectedProject?.name} / ${selectedBranch}`"
+      confirm-text="提交"
+      :loading="submitting"
+      @confirm="doSubmit"
+    />
+
+    <ConfirmDialog
+      v-model:open="favPromptOpen"
+      title="保存为收藏？"
+      description="将保存项目 + 环境 + 分支，之后可一键复用"
+      confirm-text="保存"
+      @confirm="onSaveFavorite"
+    />
   </div>
 </template>

@@ -109,7 +109,18 @@ struct HttpResult {
 `http_request` 内部自动完成四件事，调用方无感：
 
 1. **注入 Cookie**：从 Rust 内存中的 Cookie Jar 取，前端永远拿不到 cookie 明文。
-2. **POST 自动补 CSRF**：从 cookie `csrftoken` 取值，写入请求体的 `csrfmiddlewaretoken` 字段，并同时设置 `X-CSRFToken` 请求头。（两个名字不同名，沿用插件 `src/api/client.ts:43-50` 的写法）
+2. **POST 自动补 CSRF（尽力而为，非必需）**：从 cookie `csrftoken` 取值，写入请求体的
+   `csrfmiddlewaretoken` 字段，并同时设置 `X-CSRFToken` 请求头。（两个名字不同名，
+   沿用插件 `src/api/client.ts:43-50` 的写法）
+
+   > **实测事实（2026-10-13）**：ITSM **不下发 `csrftoken` cookie**——登录前后
+   > 都只有 `sessionid`；且往只接受 GET 的视图发空 POST 得到 500 而非 403，
+   > 说明请求已穿过 CSRF 中间件（Django 的 CSRF 失败一定返回 403）。
+   > 即服务端未启用 CSRF 校验，该 cookie 从来不是必需项。
+   >
+   > 因此 Rust 侧**不得**因为缺失 csrftoken 而拒绝发送请求——这是早期实现的实际 bug，
+   > 表现为点「确认提交部署」直接报「cookie 中缺少 csrftoken，请重新登录」。
+   > 复现与验证工具：`cargo run --example probe_cookies`。
 3. **302 语义前置判定**：`302` 且 `Location` 含 `/login/` 判定为**会话过期**，而非操作成功。
 4. **自动续登**：会话过期且钥匙串中有账号密码时，静默重新登录，然后**重放原请求一次**，返回真实结果。重放仅允许一次，避免死循环。
 

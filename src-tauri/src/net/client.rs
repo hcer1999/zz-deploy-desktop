@@ -7,7 +7,7 @@ use serde::Serialize;
 use url::Url;
 
 use crate::error::AppError;
-use crate::net::csrf::{require_csrf, with_csrf};
+use crate::net::csrf::{csrf_or_empty, with_csrf};
 
 /// 与插件 `src/api/client.ts:4-8` 保持一致的请求头。
 /// User-Agent 必须伪装成浏览器：服务端会据此判断客户端类型。
@@ -129,7 +129,11 @@ impl HttpClient {
         self.execute(req, &url).await
     }
 
-    /// 带 CSRF 的 POST。缺少 csrftoken 时**在发送前**就报错。
+    /// 业务 POST。
+    ///
+    /// CSRF 是**尽力而为**而不是必需项：ITSM 不下发 csrftoken cookie，
+    /// 已在线运行的插件也是发空值（`src/api/client.ts:43-45`）。
+    /// 详见 `net::csrf::csrf_or_empty`。
     pub async fn post(
         &self,
         path: &str,
@@ -137,7 +141,7 @@ impl HttpClient {
     ) -> Result<HttpResult, AppError> {
         let url = self.url_for(path)?;
         let cookie = self.cookie_header().await;
-        let token = require_csrf(cookie.as_deref())?;
+        let token = csrf_or_empty(cookie.as_deref());
         let body = with_csrf(form.to_vec(), &token);
 
         let req = self
@@ -286,17 +290,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn post_without_csrf_cookie_is_rejected_before_sending() {
+    async fn post_without_csrf_cookie_still_sends_with_empty_token() {
+        // 回归：曾经因为"缺 csrftoken 就报错"导致提交部署直接失败。
+        // ITSM 不下发 csrftoken，服务端也未启用 CSRF 校验，
+        // 插件同样发空值并成功（src/api/client.ts:43-45）。
         let server = MockServer::start().await;
-        // 不挂任何 mock：只要发出请求就会 404，能据此判断是否真的发出去了
+        Mock::given(method("POST"))
+            .and(path("/submit/"))
+            .respond_with(ResponseTemplate::new(302).insert_header("location", "/task/"))
+            .mount(&server)
+            .await;
 
         let c = http_client(&server.uri());
         c.seed_cookie("sessionid=s1").await;
-        let err = c.post("/submit/", &[]).await.unwrap_err();
-        assert_eq!(err.kind, crate::error::ErrorKind::Auth);
+        let r = c.post("/submit/", &[("title".to_string(), "t".to_string())])
+            .await
+            .unwrap();
 
+        assert_eq!(r.status, 302, "缺少 CSRF 时仍应正常发出并返回");
         let reqs = server.received_requests().await.unwrap();
-        assert!(reqs.is_empty(), "缺少 CSRF 时不应发出请求");
+        assert_eq!(reqs.len(), 1, "缺少 CSRF 时仍应发出请求");
+        // 空值而非省略字段：与插件保持一致的请求形态
+        let body = String::from_utf8(reqs[0].body.clone()).unwrap();
+        assert!(body.contains("csrfmiddlewaretoken="), "实际 body：{body}");
     }
 
     #[tokio::test]
