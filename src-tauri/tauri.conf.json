@@ -35,6 +35,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "至真内部运维平台部署工具",
+    "longDescription": "至真部署 - ITSM 部署桌面客户端，支持自动化部署与 Docker 部署、实时构建日志、收藏快速部署。",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": { "depends": [] }
+    }
   }
 }
