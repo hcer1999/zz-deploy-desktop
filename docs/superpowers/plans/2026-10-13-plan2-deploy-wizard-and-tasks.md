@@ -994,6 +994,10 @@ vi.mock("./http", async () => {
   };
 });
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
 import * as http from "./http";
 import {
   ENVS,
@@ -1011,6 +1015,11 @@ import {
 
 function res(status: number, location: string | null = null, body = ""): http.HttpResult {
   return { status, location, body };
+}
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "__fixtures__");
+function fixtureJson(name: string): unknown {
+  return JSON.parse(readFileSync(join(FIXTURES, name), "utf-8"));
 }
 
 describe("deployPath", () => {
@@ -1098,6 +1107,30 @@ describe("fetchCommits", () => {
   it("data 为空时返回空数组", async () => {
     vi.mocked(http.httpGetJson).mockResolvedValue({ msg: "success", data: [] });
     expect(await fetchCommits("x", "main")).toEqual([]);
+  });
+
+  it("真实样本能解析出 hash 与 message", () => {
+    // 用抓取到的真实响应，锁住 #-----# 的拆解格式
+    const sample = fixtureJson("commits_sample.json");
+    vi.mocked(http.httpGetJson).mockResolvedValue(sample as never);
+    return fetchCommits("supermagicstudio-net", "release/gaoshantec_com").then((out) => {
+      expect(out.length).toBeGreaterThan(0);
+      for (const c of out) {
+        expect(c.hash).toMatch(/^[0-9a-f]{7,40}$/);
+        expect(typeof c.message).toBe("string");
+        expect(c.fullString).toContain("#-----#");
+      }
+    });
+  });
+
+  it("过滤掉不含分隔符的服务端警告（真实边界情况）", async () => {
+    // devapi/projectcommit 在项目不存在或 git 配置异常时仍返回 msg="success"，
+    // 却把一句中文警告塞进 commitids 数组（样本见 commits_warning_sample.json）。
+    // 不处理的话，Commit 下拉里会出现 hash 为整句中文的假记录。
+    const warning = fixtureJson("commits_warning_sample.json");
+    vi.mocked(http.httpGetJson).mockResolvedValue(warning as never);
+    const out = await fetchCommits("__nonexistent_project__", "release/x");
+    expect(out).toEqual([]);
   });
 });
 
@@ -1218,6 +1251,9 @@ export type { Project, TaskListResult };
 
 export type DeployType = "auto" | "docker";
 
+/** commit 与 message 的分隔符，服务端原始值（5 个连字符） */
+const COMMIT_SEPARATOR = "#-----#";
+
 export interface CommitInfo {
   hash: string;
   message: string;
@@ -1270,10 +1306,19 @@ export async function fetchCommits(projectName: string, branch: string): Promise
   }>("/devapi/projectcommit/", { project: cleanProjectName(projectName), branch });
 
   if (data.msg !== "success" || !data.data.length) return [];
-  return data.data[0].commitids.map((raw) => {
-    const [hash, message] = raw.split("#-----#");
-    return { hash, message, fullString: raw };
-  });
+
+  return (
+    data.data[0].commitids
+      // 服务端在项目不存在或 git 配置异常时，仍返回 msg="success"，
+      // 却把一句中文警告塞进 commitids（实例见 __fixtures__/commits_warning_sample.json）。
+      // 正常 commit 一定含 "#-----#"，警告文本不含，据此过滤掉。
+      // 插件没有这层过滤（src/api/deploy.ts:37），会显示假记录。
+      .filter((raw) => raw.includes(COMMIT_SEPARATOR))
+      .map((raw) => {
+        const [hash, message] = raw.split(COMMIT_SEPARATOR);
+        return { hash, message, fullString: raw };
+      })
+  );
 }
 
 export interface SubmitDeployParams {
