@@ -10,6 +10,8 @@ export interface AppConfig {
   logRetentionEntries: number;
   /** "unfocused"（仅窗口失焦时，默认）| "always"	*/
   notifyMode: "unfocused" | "always";
+  /** 侧边栏是否展开（重启后保持） */
+  sidebarExpanded: boolean;
 }
 
 export function getConfig(): Promise<AppConfig> {

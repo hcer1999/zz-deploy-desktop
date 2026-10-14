@@ -26,6 +26,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const logRetentionDays = ref(30);
   const logRetentionEntries = ref(500);
   const notifyMode = ref<NotifyMode>("unfocused");
+  const sidebarExpanded = ref(false);
   const loaded = ref(false);
 
   function apply(c: configApi.AppConfig): void {
@@ -37,6 +38,7 @@ export const useSettingsStore = defineStore("settings", () => {
     logRetentionDays.value = c.logRetentionDays;
     logRetentionEntries.value = c.logRetentionEntries;
     notifyMode.value = c.notifyMode;
+    sidebarExpanded.value = c.sidebarExpanded;
     loaded.value = true;
   }
 
@@ -76,6 +78,7 @@ export const useSettingsStore = defineStore("settings", () => {
       logRetentionDays: partial.logRetentionDays ?? logRetentionDays.value,
       logRetentionEntries: partial.logRetentionEntries ?? logRetentionEntries.value,
       notifyMode: partial.notifyMode ?? notifyMode.value,
+      sidebarExpanded: partial.sidebarExpanded ?? sidebarExpanded.value,
     });
     apply(next);
   }
@@ -89,6 +92,7 @@ export const useSettingsStore = defineStore("settings", () => {
     logRetentionDays,
     logRetentionEntries,
     notifyMode,
+    sidebarExpanded,
     loaded,
     load,
     changeBaseUrl,

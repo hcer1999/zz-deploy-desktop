@@ -23,6 +23,7 @@ const CONFIG: configApi.AppConfig = {
   logRetentionDays: 30,
   logRetentionEntries: 500,
   notifyMode: "unfocused",
+  sidebarExpanded: false,
 };
 
 describe("settings store", () => {
@@ -102,6 +103,20 @@ describe("settings store", () => {
     expect(sent.notifyMode).toBe("always");
     expect(sent.logRetentionDays).toBe(30);
     expect(sent.username).toBe("zhangsan");
+  });
+
+  it("patch 只改主题时不会把侧边栏展开状态写回默认", async () => {
+    vi.mocked(configApi.getConfig).mockResolvedValue({ ...CONFIG, sidebarExpanded: true });
+    vi.mocked(configApi.setConfig).mockImplementation(async (p) => p);
+
+    const s = useSettingsStore();
+    await s.load();
+    expect(s.sidebarExpanded).toBe(true);
+    await s.patch({ theme: "light" });
+
+    const sent = vi.mocked(configApi.setConfig).mock.calls[0][0];
+    expect(sent.theme).toBe("light");
+    expect(sent.sidebarExpanded).toBe(true);
   });
 
   it("patch 后本地状态跟随服务端返回值", async () => {

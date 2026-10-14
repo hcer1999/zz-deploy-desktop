@@ -23,6 +23,8 @@ pub struct AppConfig {
     pub log_retention_entries: usize,
     /// 构建完成通知的触发条件："unfocused"（仅窗口失焦时，默认）| "always"（spec §6.2）
     pub notify_mode: String,
+    /// 侧边栏是否展开（仅 UI 布局偏好，但和其它设置一起放 config.json，重启后保持）
+    pub sidebar_expanded: bool,
 }
 
 impl Default for AppConfig {
@@ -36,6 +38,7 @@ impl Default for AppConfig {
             log_retention_days: 30,
             log_retention_entries: 500,
             notify_mode: "unfocused".to_string(),
+            sidebar_expanded: false,
         }
     }
 }
@@ -108,6 +111,9 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
     if let Some(v) = get_str("notifyMode") {
         cfg.notify_mode = normalize_notify_mode(&v);
     }
+    if let Some(v) = store.get("sidebarExpanded").and_then(|v| v.as_bool()) {
+        cfg.sidebar_expanded = v;
+    }
     Ok(cfg)
 }
 
@@ -142,6 +148,10 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, cfg: &AppConfig) -> Result<(), AppEr
     store.set(
         "notifyMode",
         serde_json::json!(normalize_notify_mode(&cfg.notify_mode)),
+    );
+    store.set(
+        "sidebarExpanded",
+        serde_json::json!(cfg.sidebar_expanded),
     );
     store
         .save()
@@ -191,6 +201,8 @@ mod tests {
         assert_eq!(d.base_url, DEFAULT_BASE_URL);
         assert_eq!(d.log_retention_days, 30);
         assert_eq!(d.log_retention_entries, 500);
+        // 默认折叠，保持与历史外观一致
+        assert!(!d.sidebar_expanded);
     }
 
     #[test]
@@ -218,6 +230,7 @@ mod tests {
         assert!(v.get("logRetentionDays").is_some());
         assert!(v.get("logRetentionEntries").is_some());
         assert!(v.get("notifyMode").is_some());
+        assert_eq!(v["sidebarExpanded"], serde_json::json!(false));
     }
 
     #[test]
@@ -231,6 +244,7 @@ mod tests {
             log_retention_days: 7,
             log_retention_entries: 42,
             notify_mode: "always".to_string(),
+            sidebar_expanded: true,
         };
         let text = serde_json::to_string(&original).unwrap();
         let back: AppConfig = serde_json::from_str(&text).unwrap();
@@ -240,5 +254,6 @@ mod tests {
         assert_eq!(back.log_retention_days, 7);
         assert_eq!(back.log_retention_entries, 42);
         assert_eq!(back.notify_mode, "always");
+        assert!(back.sidebar_expanded);
     }
 }
