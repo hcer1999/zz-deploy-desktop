@@ -8,6 +8,7 @@ import { useTabsStore } from "@/stores/tabs";
 import { useTasksStore } from "@/stores/tasks";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import SearchSelect from "@/components/common/SearchSelect.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -100,8 +101,34 @@ const favorites = useFavoritesStore();
 
 const submitting = ref(false);
 const confirmOpen = ref(false);
-const favPromptOpen = ref(false);
 const flash = ref("");
+
+/**
+ * 收藏粒度：选完项目即可收藏「项目级」，选完分支可收藏「分支级」。
+ *
+ * 旧实现把保存入口放在「选完 commit」之后，且写死 type="config"，
+ * 导致「必须选到 commit 才能收藏」而且是纯 UI 限制（收藏里压根不存 commit）。
+ */
+type FavTarget = "project" | "branch";
+const favTarget = ref<FavTarget | null>(null);
+
+const favTitle = computed(() =>
+  favTarget.value === "project" ? "收藏此项目？" : "收藏此分支？",
+);
+const favDesc = computed(() => {
+  const base = `${envName.value} / ${selectedProject.value?.name ?? ""}`;
+  return favTarget.value === "project"
+    ? `${base}\n仅记住项目，部署时再选分支与 commit`
+    : `${base} / ${selectedBranch.value}\n记住分支（部署时仍可改）`;
+});
+
+/** commit 下拉的选项：hash 前 8 位 + message（原生 select 长文本不可读） */
+const commitOptions = computed(() =>
+  commits.value.map((c) => ({
+    value: c.fullString,
+    label: `${c.hash.slice(0, 8)} ${c.message}`,
+  })),
+);
 
 function flashMsg(msg: string): void {
   flash.value = msg;
@@ -138,25 +165,28 @@ async function doSubmit(): Promise<void> {
 }
 
 async function onSaveFavorite(): Promise<void> {
-  if (!selectedProject.value || !selectedBranch.value || envId.value === null) return;
+  const target = favTarget.value;
+  if (!target || !selectedProject.value || envId.value === null) return;
+  if (target === "branch" && !selectedBranch.value) return;
   try {
     // 必须走 store 而不是直接调 api/favorites：
     // 收藏页读的是 store.items，绕过 store 会让它停留在旧列表
     // （实测：保存成功但收藏页看不到）。
     await favorites.save({
       id: "",
-      type: "config",
+      type: target === "project" ? "project" : "config",
       deployType: deployType.value,
       envId: envId.value,
       envName: envName.value,
       projectId: selectedProject.value.id,
       projectName: selectedProject.value.name,
-      branch: selectedBranch.value,
+      // 仅项目级收藏不带分支（部署时再选）；分支级收藏的 branch 也只是默认值，收藏页可改
+      branch: target === "branch" ? selectedBranch.value : undefined,
     });
-    favPromptOpen.value = false;
-    flashMsg("已保存为收藏");
+    favTarget.value = null;
+    flashMsg(target === "project" ? "已收藏该项目" : "已收藏该分支");
   } catch (e) {
-    favPromptOpen.value = false;
+    favTarget.value = null;
     error.value = toUserMessage(e);
   }
 }
@@ -191,7 +221,19 @@ async function onSaveFavorite(): Promise<void> {
     <section v-else-if="projects" class="space-y-2">
       <div class="flex items-center justify-between gap-3">
         <Label>项目（{{ filteredProjects.length }} / {{ projects.length }}）</Label>
-        <Input v-model="projectSearch" placeholder="搜索项目…" class="w-56 h-8" />
+        <div class="flex items-center gap-2">
+          <Button
+            v-if="selectedProject"
+            data-test="fav-project"
+            variant="outline"
+            size="sm"
+            class="h-8"
+            @click="favTarget = 'project'"
+          >
+            收藏此项目
+          </Button>
+          <Input v-model="projectSearch" placeholder="搜索项目…" class="w-56 h-8" />
+        </div>
       </div>
       <div v-if="projects.length === 0" class="text-xs text-text-muted">该环境下没有项目</div>
       <div v-else class="flex flex-wrap gap-2 max-h-[240px] overflow-auto p-1">
@@ -209,7 +251,19 @@ async function onSaveFavorite(): Promise<void> {
     </section>
 
     <section v-if="selectedProject" class="space-y-2">
-      <Label>分支</Label>
+      <div class="flex items-center gap-3">
+        <Label>分支</Label>
+        <Button
+          v-if="selectedBranch"
+          data-test="fav-branch"
+          variant="outline"
+          size="sm"
+          class="h-7 px-2 text-[11px]"
+          @click="favTarget = 'branch'"
+        >
+          收藏此分支
+        </Button>
+      </div>
       <div v-if="loading.branches" class="text-xs text-text-muted">正在加载分支…</div>
       <div v-else-if="branches.length === 0" class="text-xs text-text-muted">未找到分支</div>
       <div v-else class="flex flex-wrap gap-2 max-h-[180px] overflow-auto p-1">
@@ -230,16 +284,15 @@ async function onSaveFavorite(): Promise<void> {
       <Label>Commit</Label>
       <div v-if="loading.commits" class="text-xs text-text-muted">正在加载 Commit…</div>
       <div v-else-if="commits.length === 0" class="text-xs text-text-muted">未找到 Commit 记录</div>
-      <select
+      <!-- 可搜索下拉：commit message 很长，原生 select 既不好看也不可搜（spec §5.4） -->
+      <SearchSelect
         v-else
         v-model="selectedCommit"
-        class="w-full max-w-[760px] h-9 rounded-md border border-border bg-surface px-2 text-xs font-mono"
-      >
-        <option value="">-- 选择 Commit --</option>
-        <option v-for="c in commits" :key="c.fullString" :value="c.fullString">
-          {{ c.hash.slice(0, 8) }} {{ c.message }}
-        </option>
-      </select>
+        :options="commitOptions"
+        placeholder="搜索并选择 Commit…"
+        empty-text="没有匹配的 Commit"
+        class="h-9 max-w-[760px] text-xs"
+      />
     </section>
 
     <section v-if="selectedCommit" class="pt-3 border-t border-border space-y-3">
@@ -253,9 +306,6 @@ async function onSaveFavorite(): Promise<void> {
       <div class="flex gap-2">
         <Button :disabled="submitting" @click="confirmOpen = true">
           {{ submitting ? "提交中…" : "确认提交部署" }}
-        </Button>
-        <Button variant="outline" :disabled="submitting" @click="favPromptOpen = true">
-          保存为收藏
         </Button>
       </div>
       <p v-if="flash" class="text-xs text-success">{{ flash }}</p>
@@ -273,10 +323,15 @@ async function onSaveFavorite(): Promise<void> {
     />
 
     <ConfirmDialog
-      v-model:open="favPromptOpen"
-      title="保存为收藏？"
-      description="将保存项目 + 环境 + 分支，之后可一键复用"
-      confirm-text="保存"
+      :open="favTarget !== null"
+      :title="favTitle"
+      :description="favDesc"
+      confirm-text="收藏"
+      @update:open="
+        (v: boolean) => {
+          if (!v) favTarget = null;
+        }
+      "
       @confirm="onSaveFavorite"
     />
   </div>
