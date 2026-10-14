@@ -147,6 +147,34 @@ export APPLE_ID=... APPLE_PASSWORD=... APPLE_TEAM_ID=...
 npm run tauri build
 ```
 
+### 推送给同事前自检（重要）
+
+**本地能编译 ≠ 仓库完整**。被 `.gitignore` 忽略的源码文件不会进版本库，而 `git status`
+也看不到它们（被忽略的文件不显示），所以“工作区干净”不能当作可构建的证明。
+实测踩过：`.gitignore` 里一条 `logs/` 把源码目录 `src-tauri/src/logs/` 一起忽略了，
+本地一直正常，但从仓库 clone/下载 ZIP 的人编译必报 `file not found for module logs`。
+
+所以每次推送前（尤其是改了目录名/新增目录时）跑一遍**干净克隆全量构建**：
+
+```bash
+rm -rf /tmp/freshcheck
+git clone <repo-url> /tmp/freshcheck && cd /tmp/freshcheck
+npm ci && npm run build
+(cd src-tauri && cargo test)
+```
+
+更省事的做法是接 CI：在 `.github/workflows/ci.yml` 里对 push/PR 跑上面三条命令，
+这类问题就不会溜到同事手上（私有仓库用 Actions 额度，一次约 5–8 分钟）。
+
+另外自查一条：**本地有、但没进版本库的源码文件**（不是构建产物的话就是漏提交了）：
+
+```bash
+comm -13 <(git ls-files | sort) \
+  <(find . -type f -not -path "./.git/*" -not -path "./node_modules/*" \
+      -not -path "./dist/*" -not -path "./src-tauri/target/*" -not -path "./src-tauri/gen/*" \
+      | sed 's|^\./||' | sort)
+```
+
 ### 打包小坑
 
 `bundle_dmg.sh` 偶发失败（`failed to run bundle_dmg.sh`）并在 `/Volumes/` 留下未卸载的临时卷：
