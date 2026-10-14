@@ -9,8 +9,10 @@ build/
 *.local
 src-tauri/gen/
 
-# 日志
-logs/
+# 运行时日志（应用实际写的是应用数据目录，这里是兜底）
+# 注意必须写成 /logs/：写成 logs/ 会连 src-tauri/src/logs/（源码模块）一起忽略掉，
+# 实测踩过——本地能编译，推上去的仓库却缺文件，别人 clone 下来直接编译失败。
+/logs/
 *.log
 npm-debug.log*
 
