@@ -40,6 +40,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    // jsdom 缺失的浏览器 API 在这里补齐（见该文件注释）
+    setupFiles: ["src/test-setup.ts"],
   },
 
   build: {
