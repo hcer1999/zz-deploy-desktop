@@ -6,6 +6,7 @@ import { useFavoritesStore } from "@/stores/favorites";
 import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
+import SearchSelect from "@/components/common/SearchSelect.vue";
 import { Button } from "@/components/ui/button";
 import { VueDraggable } from "vue-draggable-plus";
 import { GripVertical } from "@lucide/vue";
@@ -119,12 +120,14 @@ async function toggle(id: string): Promise<void> {
 
   const d = draft(id);
   d.error = "";
+
+  // 分支列表总是拉：收藏里记的分支只是**默认值**，用户随时可以改成别的，
+  // 所以下拉里必须有全部分支可选项（旧实现只在「没记分支」时才拉分支列表，
+  // 并把记了分支的收藏锁死——这正是本次要修的问题）。
+  await loadBranches(id);
   if (fav.branch) {
-    // 收藏自带分支 → 直接拉 commit
     d.branch = fav.branch;
     await loadCommits(id);
-  } else {
-    await loadBranches(id);
   }
 }
 
@@ -152,6 +155,8 @@ async function loadCommits(id: string): Promise<void> {
   d.error = "";
   try {
     d.commits = await fetchCommits(fav.projectName, d.branch);
+    // 默认选最新一条：收藏的意义就是少点几下；用户仍可在下拉里改
+    d.commit = d.commits[0]?.fullString ?? "";
   } catch (e) {
     d.error = toUserMessage(e);
   } finally {
@@ -159,12 +164,17 @@ async function loadCommits(id: string): Promise<void> {
   }
 }
 
-async function pickBranch(id: string, branch: string): Promise<void> {
+/** 改分支：清掉旧 commit 并重拉（旧 commit 属于别的分支，不能留） */
+async function onBranchChange(id: string, branch: string): Promise<void> {
   const d = draft(id);
   d.branch = branch;
   d.commit = "";
   d.commits = [];
   if (branch) await loadCommits(id);
+}
+
+function onCommitChange(id: string, commit: string): void {
+  draft(id).commit = commit;
 }
 
 async function quickDeploy(id: string): Promise<void> {
@@ -254,6 +264,17 @@ async function confirmDelete(): Promise<void> {
               <template v-if="f.branch"> · {{ f.branch }}</template>
             </div>
           </div>
+          <span
+            :class="[
+              'text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap',
+              f.type === 'project'
+                ? 'border-border text-text-muted'
+                : 'border-primary/40 text-primary',
+            ]"
+            :title="f.type === 'project' ? '只记住项目，部署时再选分支' : '记住了分支（部署时仍可改）'"
+          >
+            {{ f.type === "project" ? "仅项目" : "项目+分支" }}
+          </span>
           <Button size="sm" variant="outline" @click="toggle(f.id)">
             {{ expandedId === f.id ? "收起" : "快速部署" }}
           </Button>
@@ -271,40 +292,45 @@ async function confirmDelete(): Promise<void> {
           v-if="expandedId === f.id"
           class="border-t border-border bg-surface-2 px-4 py-3 space-y-3"
         >
-          <div v-if="!f.branch" class="space-y-1.5">
+          <!-- 分支总是可改：收藏里记的只是默认值 -->
+          <div class="space-y-1.5 max-w-[560px]">
             <div class="text-[11px] text-text-muted">
               分支{{ draft(f.id).loadingBranches ? "（加载中…）" : "" }}
             </div>
-            <div v-if="!draft(f.id).loadingBranches && draft(f.id).branches.length === 0" class="text-[11px] text-text-muted">
+            <div
+              v-if="!draft(f.id).loadingBranches && draft(f.id).branches.length === 0"
+              class="text-[11px] text-text-muted"
+            >
               未找到分支
             </div>
-            <div v-else class="flex flex-wrap gap-1.5">
-              <Button
-                v-for="b in draft(f.id).branches"
-                :key="b"
-                size="sm"
-                :variant="draft(f.id).branch === b ? 'default' : 'secondary'"
-                class="text-[11px] font-mono h-6 px-2"
-                @click="pickBranch(f.id, b)"
-              >
-                {{ b }}
-              </Button>
-            </div>
+            <SearchSelect
+              v-else
+              :model-value="draft(f.id).branch"
+              :options="draft(f.id).branches.map((b) => ({ value: b, label: b }))"
+              :disabled="draft(f.id).loadingBranches"
+              placeholder="搜索并选择分支…"
+              empty-text="没有匹配的分支"
+              @update:model-value="(v: string) => onBranchChange(f.id, v)"
+            />
           </div>
 
-          <div v-if="draft(f.id).branch" class="space-y-1.5">
+          <div class="space-y-1.5 max-w-[760px]">
             <div class="text-[11px] text-text-muted">
               Commit{{ draft(f.id).loadingCommits ? "（加载中…）" : "" }}
             </div>
-            <select
-              v-model="draft(f.id).commit"
-              class="w-full max-w-[760px] h-8 rounded-md border border-border bg-surface px-2 text-[11px] font-mono"
-            >
-              <option value="">-- 选择 Commit --</option>
-              <option v-for="c in draft(f.id).commits" :key="c.fullString" :value="c.fullString">
-                {{ c.hash.slice(0, 8) }} {{ c.message }}
-              </option>
-            </select>
+            <SearchSelect
+              :model-value="draft(f.id).commit"
+              :options="
+                draft(f.id).commits.map((c) => ({
+                  value: c.fullString,
+                  label: `${c.hash.slice(0, 8)} ${c.message}`,
+                }))
+              "
+              :disabled="!draft(f.id).branch || draft(f.id).loadingCommits"
+              placeholder="搜索并选择 Commit…"
+              empty-text="没有匹配的 Commit"
+              @update:model-value="(v: string) => onCommitChange(f.id, v)"
+            />
           </div>
 
           <p v-if="draft(f.id).error" class="text-[11px] text-danger">{{ draft(f.id).error }}</p>
