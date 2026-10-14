@@ -289,6 +289,11 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 └──────────┴─────────────────────────────────────────────────────┘
 ```
 
+侧边栏默认折叠为图标栏（宽 56px），点击顶部按钮可展开为带导航名的形式（宽约 180px）；
+展开状态写入 `config.json` 的 `sidebarExpanded`，重启后保持。窗口标题为
+`至真部署-桌面版 Ver<版本>`，版本取自运行时 `getVersion()`（真值在 `tauri.conf.json`），
+并用 `setTitle` 同步到原生窗口标题，避免标题、包名、关于页三处各写一份而漂移。
+
 **跨平台标题栏差异（必须处理）**：
 
 - **macOS**：`titleBarStyle: "Overlay"`，保留系统红绿灯按钮，标签栏紧随其后排布。
@@ -322,7 +327,7 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 |---|---|
 | 登录 | 未登录时的全屏页。baseUrl 可改，默认 `https://itsm.zhizhengroup.com` |
 | 新建部署向导 | 见 §5.4 |
-| 收藏 | 收藏列表 + 内联快速部署 |
+| 收藏 | 收藏列表 + 内联快速部署。支持两种粒度：**仅项目**（部署时再选分支）与**项目+分支**（分支为默认值、**部署时可改**）。列表可拖动排序；改分支只作用于本次部署，不写回收藏 |
 | 任务列表 | 核心页面，见 §5.5 |
 | 构建日志 | 深色等宽终端风格，实时流 |
 | 历史日志 | 本地留存的日志回看、搜索、导出、删除 |
@@ -345,8 +350,13 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 
 3. **项目**：卡片网格 + 搜索框；每个卡片右上角星标用于收藏。
 4. **分支**：可搜索下拉。
-5. **Commit**：**可搜索**下拉 —— commit message 很长，原生 select 不可用。选项形如 `a1b2c3d4 修复播放页黑屏问题`。
-6. **提交**：主按钮「确认提交部署」+ 次按钮「保存为收藏」。
+5. **Commit**：**可搜索**下拉（reka-ui Combobox）—— commit message 很长，原生 select 既不可读也不可搜。选项形如 `a1b2c3d4 修复播放页黑屏问题`。
+6. **提交**：主按钮「确认提交部署」。
+7. **收藏**：两个上下文入口，**都不要求选 commit**：
+   - 选中项目后 → 「收藏此项目」（`type: "project"`，不记分支，部署时再选）
+   - 选中分支后 → 「收藏此分支」（`type: "config"`，分支只作为默认值，收藏页仍可改）
+
+   收藏**不记 commit**，以保持与 VSCode 插件的收藏文件互相兼容。
 
 ### 5.5 任务列表
 
@@ -456,7 +466,7 @@ Rust:  连接 wss://<baseUrl>/wssapp/，握手带 Cookie 头
 
 | 数据 | 位置 | 方式 | 是否落盘 |
 |---|---|---|---|
-| baseUrl / 主题 / 保留策略 / 关闭行为 / 轮询间隔 | `config.json` | `tauri-plugin-store` | 是 |
+| baseUrl / 主题 / 保留策略 / 关闭行为 / 轮询间隔 / 通知触发条件 / 侧边栏展开 | `config.json` | `tauri-plugin-store` | 是 |
 | 账号密码 | `<appDataDir>/credentials.bin` | AES-256-GCM，密钥同目录 `credentials.key`（0600） | 是（加密） |
 | Cookie / session | 仅 Rust 内存 | reqwest Cookie Jar | **否** |
 | 收藏列表 | `favorites.json` | `tauri-plugin-store` | 是 |
