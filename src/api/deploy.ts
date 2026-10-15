@@ -120,6 +120,14 @@ export async function submitRollback(type: DeployType, taskId: number): Promise<
   return isActionOk(await httpGet(`/${deployPath(type)}/task/${taskId}/roll/`));
 }
 
+/**
+ * 重新构建。路径与「上线 / 回滚」同构，但**只对构建失败的任务开放**：
+ * 入口的显示条件在 TaskListView（服务端只给文案，没有结构化的失败标志位）。
+ */
+export async function submitRebuild(type: DeployType, taskId: number): Promise<boolean> {
+  return isActionOk(await httpGet(`/${deployPath(type)}/task/${taskId}/rebuild/`));
+}
+
 export async function deleteTask(type: DeployType, taskId: number): Promise<boolean> {
   return isActionOk(await httpGet(`/${deployPath(type)}/submit/task/${taskId}/`));
 }

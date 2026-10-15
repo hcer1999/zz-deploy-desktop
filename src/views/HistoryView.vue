@@ -4,7 +4,8 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useHistoryStore } from "@/stores/history";
 import { useTabsStore } from "@/stores/tabs";
 import { setOpenLog } from "@/stores/tabPayload";
-import { stripAnsi } from "@/lib/ansi";
+import { normalizeLogText, normalizeToLines } from "@/lib/ansi";
+import { highlightLineCached } from "@/lib/logHighlight";
 import { toUserMessage } from "@/api/http";
 import { exportHistory } from "@/api/history";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,12 @@ const tabs = useTabsStore();
 const search = ref("");
 const openKey = ref("");
 const openText = ref("");
+/**
+ * 回看也按行渲染并做同样的语法高亮。
+ * 关键是走 `normalizeToLines`（与实时显示同一套 ANSI/重画/进度合并规则），
+ * 直接按 "\n" 切会把进度条的几百帧焊成一行。
+ */
+const openLines = computed(() => (openText.value ? normalizeToLines(openText.value) : []));
 const openLoading = ref(false);
 const flash = ref("");
 const clearing = ref(false);
@@ -63,7 +70,7 @@ async function toggle(e: { deployType: "auto" | "docker"; taskId: number }): Pro
   try {
     // 留存的是原始内容，渲染前剥离 ANSI（与实时日志同一套逻辑）
     const raw = await history.readOne(e.deployType, e.taskId);
-    openText.value = raw === null ? "（日志文件已不存在）" : stripAnsi(raw);
+    openText.value = raw === null ? "（日志文件已不存在）" : normalizeLogText(raw);
   } catch (err) {
     openText.value = toUserMessage(err);
   } finally {
@@ -88,7 +95,7 @@ async function exportOne(e: {
       filters: [{ name: "日志文件", extensions: ["log", "txt"] }],
     });
     if (!dest) return;
-    await exportHistory(dest, stripAnsi(raw));
+    await exportHistory(dest, normalizeLogText(raw));
     showFlash("已导出");
   } catch (err) {
     showFlash(toUserMessage(err));
@@ -206,7 +213,13 @@ async function doClear(): Promise<void> {
           class="border-t border-border bg-[#0b0d12] text-[#d4d4d4] px-3 py-2 max-h-[420px] overflow-auto font-mono text-[12px] leading-relaxed whitespace-pre-wrap break-all"
         >
           <span v-if="openLoading" class="text-white/40">读取中…</span>
-          <template v-else>{{ openText }}</template>
+          <template v-else>
+            <div v-for="(line, i) in openLines" :key="i" class="whitespace-pre-wrap break-all">
+              <span v-for="(seg, j) in highlightLineCached(line)" :key="j" :class="seg.cls">{{
+                seg.text
+              }}</span>
+            </div>
+          </template>
         </div>
       </li>
     </ul>

@@ -25,8 +25,9 @@ vi.mock("@tauri-apps/api/window", () => ({
 import { useBuildNotifications } from "./useBuildNotifications";
 import { useSettingsStore } from "@/stores/settings";
 import { useTasksStore } from "@/stores/tasks";
+import { useBatchStore } from "@/stores/batch";
 
-function task(id: number, buildStatus: string): DeployTask {
+function task(id: number, buildStatus: string, submitter = "zhangsan"): DeployTask {
   return {
     taskId: id,
     title: `部署 #${id}`,
@@ -39,7 +40,7 @@ function task(id: number, buildStatus: string): DeployTask {
     onlineStatus: "未上线",
     buildStatus,
     submitTime: "2026-10-13 10:00:00",
-    submitter: "zhangsan",
+    submitter,
     canUp: false,
     canRoll: false,
     canDelete: false,
@@ -56,6 +57,8 @@ describe("useBuildNotifications", () => {
     setActivePinia(createPinia());
     sendNotification.mockClear();
     isFocused.mockResolvedValue(false);
+    // 服务端页面里学到的当前登录人显示名（与任务的 submitter 同一套名字）
+    useTasksStore().currentUser = "zhangsan";
   });
 
   it("窗口失焦时，日志流结束会弹一条通知", async () => {
@@ -86,8 +89,23 @@ describe("useBuildNotifications", () => {
     expect(sendNotification).not.toHaveBeenCalled();
   });
 
-  it("窗口聚焦时不打扰用户", async () => {
+  it("默认（不显式设置）就是「始终通知」：窗口聚焦也弹", async () => {
     isFocused.mockResolvedValue(true);
+    const tasks = useTasksStore();
+    tasks.tasks = [task(1009, "构建中")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(1009, "构建成功")];
+    notify.onLogFinished(1009);
+    await settle();
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it("设为「仅窗口失焦时」后，窗口聚焦就不打扰用户", async () => {
+    isFocused.mockResolvedValue(true);
+    useSettingsStore().notifyMode = "unfocused";
     const tasks = useTasksStore();
     tasks.tasks = [task(1002, "构建中")];
     const notify = useBuildNotifications();
@@ -172,5 +190,108 @@ describe("useBuildNotifications", () => {
 
     expect(sendNotification).toHaveBeenCalledTimes(1);
     expect(sendNotification.mock.calls[0][0]).toMatchObject({ title: "构建失败" });
+  });
+
+  it("别人提交的构建不通知（无论日志流还是轮询）", async () => {
+    const tasks = useTasksStore();
+    tasks.tasks = [task(2001, "构建中", "lisi")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(2001, "构建成功", "lisi")];
+    notify.onLogFinished(2001);
+    notify.diffAfterRefresh();
+    await settle();
+
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("同一批里只有自己那条弹通知", async () => {
+    const tasks = useTasksStore();
+    tasks.tasks = [task(2002, "构建中"), task(2003, "构建中", "lisi")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(2002, "构建成功"), task(2003, "构建成功", "lisi")];
+    notify.diffAfterRefresh();
+    await settle();
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(sendNotification.mock.calls[0][0]).toMatchObject({ id: 2002 });
+  });
+
+  it("还不知道当前登录人是谁时一律不通知（宁可漏报也不退回全弹）", async () => {
+    const tasks = useTasksStore();
+    tasks.currentUser = "";
+    tasks.tasks = [task(2004, "构建中")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(2004, "构建成功")];
+    notify.onLogFinished(2004);
+    notify.diffAfterRefresh();
+    await settle();
+
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("批量部署期间的单条通知抑制", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    sendNotification.mockClear();
+    isFocused.mockResolvedValue(false);
+    useTasksStore().currentUser = "zhangsan";
+  });
+
+  /** 造一个已认领任务 1001 的批次 */
+  function claimedBatch(): void {
+    const batches = useBatchStore();
+    const run = batches.start({
+      autoOnline: false,
+      baselines: { auto: 1000 },
+      items: [
+        {
+          deployType: "auto",
+          envId: 1,
+          envName: "测试环境",
+          projectId: 1,
+          projectName: "zz-cy-iptv",
+          branch: "main",
+          version: "abc12345#-----#修复",
+        },
+      ],
+    });
+    run.items[0].taskId = 3001; // 直接当成已认领（认领逻辑由 batch.test.ts 覆盖）
+  }
+
+  it("批次内的任务不弹单条（交给批次汇总）", async () => {
+    claimedBatch();
+    const tasks = useTasksStore();
+    tasks.tasks = [task(3001, "构建中")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(3001, "构建成功")];
+    notify.diffAfterRefresh();
+    await settle();
+
+    expect(sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("批次外的任务照常弹", async () => {
+    claimedBatch();
+    const tasks = useTasksStore();
+    // 用没在别的用例里出现过的 id：去重集合是模块级的（见 useBuildNotifications 顶部注释）
+    tasks.tasks = [task(3002, "构建中")];
+    const notify = useBuildNotifications();
+    notify.diffAfterRefresh();
+
+    tasks.tasks = [task(3002, "构建成功")];
+    notify.diffAfterRefresh();
+    await settle();
+
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+    expect(sendNotification.mock.calls[0][0]).toMatchObject({ id: 3002 });
   });
 });

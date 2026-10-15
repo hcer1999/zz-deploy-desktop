@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import DeployWizard from "@/views/DeployWizard.vue";
+import BatchDeployView from "@/views/BatchDeployView.vue";
 import TaskListView from "@/views/TaskListView.vue";
 import FavoritesView from "@/views/FavoritesView.vue";
 import SettingsView from "@/views/SettingsView.vue";
+import AboutView from "@/views/AboutView.vue";
 import LogView from "@/views/LogView.vue";
 import HistoryView from "@/views/HistoryView.vue";
 import WipView from "@/views/WipView.vue";
@@ -22,9 +24,11 @@ const tabs = useTabsStore();
   -->
   <div v-for="t in tabs.tabs" v-show="tabs.activeId === t.id" :key="t.id" class="h-full">
     <DeployWizard v-if="t.kind === 'wizard'" />
+    <BatchDeployView v-else-if="t.kind === 'batch'" />
     <TaskListView v-else-if="t.kind === 'list'" />
     <FavoritesView v-else-if="t.kind === 'favorites'" />
     <SettingsView v-else-if="t.kind === 'settings'" />
+    <AboutView v-else-if="t.kind === 'about'" />
     <LogView v-else-if="t.kind === 'log'" :tab-id="t.id" />
     <HistoryView v-else-if="t.kind === 'history'" />
     <WipView v-else :title="tabs.titleOf(t)" />

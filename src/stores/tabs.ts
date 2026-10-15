@@ -3,13 +3,28 @@ import { ref, computed } from "vue";
 import { useLogsStore } from "./logs";
 import { clearTab } from "./tabPayload";
 
-export type TabKind = "wizard" | "favorites" | "list" | "history" | "settings" | "log";
+export type TabKind =
+  | "wizard"
+  | "batch"
+  | "favorites"
+  | "list"
+  | "history"
+  | "settings"
+  | "about"
+  | "log";
 
 /**
  * 单例标签：同 kind 只允许一个。
  * `log` 与 `wizard` 不在其中——log 按 taskId 去重，wizard 允许开多个。
  */
-const SINGLETON: ReadonlySet<TabKind> = new Set(["favorites", "list", "history", "settings"]);
+const SINGLETON: ReadonlySet<TabKind> = new Set([
+  "batch",
+  "favorites",
+  "list",
+  "history",
+  "settings",
+  "about",
+]);
 
 export interface OpenTabOptions {
   kind: TabKind;
@@ -29,10 +44,12 @@ export interface Tab extends OpenTabOptions {
 
 const DEFAULT_TITLES: Record<TabKind, string> = {
   wizard: "新建部署",
+  batch: "批量部署",
   favorites: "收藏",
   list: "任务列表",
   history: "历史日志",
   settings: "设置",
+  about: "关于",
   log: "构建日志",
 };
 

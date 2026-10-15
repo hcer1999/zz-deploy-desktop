@@ -1,7 +1,7 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { reactive } from "vue";
 import * as api from "@/api/log";
-import { createLogBuffer, flush, ingest, type LogBuffer } from "@/lib/ansi";
+import { createLogBuffer, flush, ingest, reset, type LogBuffer } from "@/lib/ansi";
 
 export type LogState = "connecting" | "connected" | "disconnected" | "finished" | "error";
 
@@ -12,6 +12,8 @@ export interface LogSession {
   envName: string;
   buffer: LogBuffer;
   state: LogState;
+  /** 服务端的原话（失败时显示给自己看，如 `数据格式错误`） */
+  detail: string;
   /** 最近一次收到数据的时间，用于"T 秒无输出"提示 */
   lastDataAt: number;
 }
@@ -41,6 +43,7 @@ export const useLogsStore = defineStore("logs", () => {
       envName: params.envName,
       buffer: createLogBuffer(),
       state: "connecting",
+      detail: "",
       lastDataAt: Date.now(),
     };
     return sessionId;
@@ -50,6 +53,8 @@ export const useLogsStore = defineStore("logs", () => {
   function onData(e: api.LogDataEvent): void {
     const s = sessions[e.sessionId];
     if (!s) return; // 会话已关闭，事件还在路上，正常丢弃
+    // reset 才会清空：服务端换窗口时会整段重发
+    if (e.reset) reset(s.buffer);
     ingest(s.buffer, e.chunk);
     s.lastDataAt = Date.now();
     if (s.state === "connecting") s.state = "connected";
@@ -59,6 +64,7 @@ export const useLogsStore = defineStore("logs", () => {
     const s = sessions[e.sessionId];
     if (!s) return;
     s.state = e.state;
+    s.detail = e.detail ?? "";
     // 流结束时最后一段没有换行的残留也要显示出来
     if (e.state === "finished" || e.state === "disconnected") flush(s.buffer);
   }

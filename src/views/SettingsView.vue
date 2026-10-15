@@ -7,6 +7,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { forgetCredentials } from "@/api/auth";
 import { useHistoryStore } from "@/stores/history";
+import { useTabsStore } from "@/stores/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ const settings = useSettingsStore();
 const auth = useAuthStore();
 const themeStore = useThemeStore();
 const history = useHistoryStore();
+const tabs = useTabsStore();
 
 const baseUrlDraft = ref("");
 const flash = ref("");
@@ -80,7 +82,7 @@ const SHORTCUTS: { keys: string; action: string }[] = [
   { keys: "⌘/Ctrl + N", action: "新建部署" },
   { keys: "⌘/Ctrl + R", action: "刷新当前标签" },
   { keys: "⌘/Ctrl + W", action: "关闭当前标签" },
-  { keys: "⌘/Ctrl + 1…5", action: "切换到第 N 个标签" },
+  { keys: "⌘/Ctrl + 1…7", action: "切换到第 N 个标签" },
   { keys: "⌘/Ctrl + ,", action: "打开设置" },
 ];
 
@@ -218,12 +220,12 @@ async function doClearLogs(): Promise<void> {
         关闭到托盘后，应用会常驻系统托盘；构建完成且窗口不在前台时会发系统通知。
       </p>
 
-      <!-- spec §6.2：通知触发条件可配（默认仅窗口失焦时） -->
+      <!-- spec §6.2：通知触发条件可配（默认「始终通知」） -->
       <div class="space-y-1.5 pt-1">
         <Label class="font-normal">构建完成通知</Label>
         <div class="flex gap-2">
           <Button
-            v-for="m in (['unfocused', 'always'] as const)"
+            v-for="m in (['always', 'unfocused'] as const)"
             :key="m"
             :variant="settings.notifyMode === m ? 'default' : 'outline'"
             size="sm"
@@ -289,6 +291,16 @@ async function doClearLogs(): Promise<void> {
         <span class="text-text-muted">当前平台</span>
         <span>{{ platformLabel || "—" }}</span>
       </div>
+      <!-- 介绍与更新日志在独立的「关于」页：那里要展示 logo 原图与构建时间，塞进设置里太挤 -->
+      <Button
+        data-test="open-about"
+        variant="outline"
+        size="sm"
+        class="w-full"
+        @click="tabs.open({ kind: 'about' })"
+      >
+        查看关于与更新日志
+      </Button>
       <table class="w-full text-xs">
         <tbody>
           <tr

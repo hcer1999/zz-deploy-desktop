@@ -19,6 +19,11 @@ export const useTasksStore = defineStore("tasks", () => {
   const loading = ref(false);
   const error = ref("");
   /**
+   * 当前登录人的显示名，随任务列表一起从服务端页面解析（见 parseTaskList）。
+   * 构建完成通知用它过滤出「我提交的任务」。
+   */
+  const currentUser = ref("");
+  /**
    * 最后一次**成功**刷新的时间。
    * 放在 store 而不是视图里：手动刷新与轮询都走 refresh()，
    * 视图自己记的话轮询路径就更新不到（实测踩过）。
@@ -46,6 +51,8 @@ export const useTasksStore = defineStore("tasks", () => {
       const r = await fetchTaskList(deployType.value, page.value, search.value);
       tasks.value = r.tasks;
       pageInfo.value = r.pageInfo;
+      // 空值不覆盖：个别页面若缺导航栏，别把已经学到的身份清掉
+      if (r.currentUser) currentUser.value = r.currentUser;
       consecutiveFailures = 0;
       offline.value = false;
       lastRefreshedAt.value = new Date();
@@ -120,6 +127,7 @@ export const useTasksStore = defineStore("tasks", () => {
     pageInfo,
     loading,
     error,
+    currentUser,
     offline,
     lastRefreshedAt,
     pollIntervalSecs,

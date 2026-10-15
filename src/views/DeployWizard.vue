@@ -4,6 +4,7 @@ import { ENVS, fetchProjects, fetchBranches, fetchCommits, submitDeploy } from "
 import type { CommitInfo, DeployType, Project } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
+import { useSettingsStore } from "@/stores/settings";
 import { useTabsStore } from "@/stores/tabs";
 import { useTasksStore } from "@/stores/tasks";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
@@ -16,9 +17,13 @@ import { Button } from "@/components/ui/button";
 /*
  * 状态全部放在组件本地：每个向导标签渲染一个独立实例，
  * 因此天然是"每个标签一份状态"，不需要额外的 store 或 tabId 映射。
+ *
+ * 例外是「上次用的部署类型 + 环境」：那是跨标签/跨启动的偏好，按仓库约定
+ * 进 config.json（与 sidebarExpanded 同一类），所以从 settings store 取初始值。
  */
-const deployType = ref<DeployType>("auto");
-const envId = ref<number | null>(null);
+const settings = useSettingsStore();
+const deployType = ref<DeployType>(settings.lastDeployType);
+const envId = ref<number | null>(settings.lastEnvId);
 const projects = ref<Project[] | null>(null);
 const projectSearch = ref("");
 const selectedProject = ref<Project | null>(null);
@@ -33,6 +38,9 @@ const error = ref("");
 
 const envName = computed(() => ENVS.find((e) => e.id === envId.value)?.name ?? "");
 
+/** 分支下拉的选项：分支名既是值也是展示文本（本来就短，不需要额外 label） */
+const branchOptions = computed(() => branches.value.map((b) => ({ value: b, label: b })));
+
 const filteredProjects = computed(() => {
   const q = projectSearch.value.trim().toLowerCase();
   const list = projects.value ?? [];
@@ -40,20 +48,37 @@ const filteredProjects = computed(() => {
 });
 
 /** 换了部署类型或环境，后面所有选择都要清空——两套路由的项目 id 不通用 */
-watch([deployType, envId], async ([, env]) => {
-  projects.value = null;
-  selectedProject.value = null;
-  resetAfterProject();
-  error.value = "";
-  if (!env) return;
-  loading.value.projects = true;
-  try {
-    projects.value = await fetchProjects(deployType.value, env);
-  } catch (e) {
-    error.value = toUserMessage(e);
-  } finally {
-    loading.value.projects = false;
-  }
+// immediate：恢复上次环境时也要拉一次项目列表，否则会出现"选中了环境但项目是空的"
+watch(
+  [deployType, envId],
+  async ([, env]) => {
+    projects.value = null;
+    selectedProject.value = null;
+    resetAfterProject();
+    error.value = "";
+    if (!env) return;
+    loading.value.projects = true;
+    try {
+      projects.value = await fetchProjects(deployType.value, env);
+    } catch (e) {
+      error.value = toUserMessage(e);
+    } finally {
+      loading.value.projects = false;
+    }
+  },
+  { immediate: true },
+);
+
+/**
+ * 记住这次的选择，下次打开向导直接预填。
+ *
+ * 只在用户真的改了之后写（watch 不 immediate）——否则每次打开向导都会写一次磁盘。
+ * `loaded` 没置位时不写：`patch()` 会把未加载的其余字段当当前值回填，
+ * 有可能把磁盘上已有的设置写成默认值。
+ */
+watch([deployType, envId], ([type, env]) => {
+  if (!settings.loaded) return;
+  void settings.patch({ lastDeployType: type, lastEnvId: env });
 });
 
 function resetAfterProject(): void {
@@ -266,18 +291,19 @@ async function onSaveFavorite(): Promise<void> {
       </div>
       <div v-if="loading.branches" class="text-xs text-text-muted">正在加载分支…</div>
       <div v-else-if="branches.length === 0" class="text-xs text-text-muted">未找到分支</div>
-      <div v-else class="flex flex-wrap gap-2 max-h-[180px] overflow-auto p-1">
-        <Button
-          v-for="b in branches"
-          :key="b"
-          :variant="selectedBranch === b ? 'default' : 'secondary'"
-          size="sm"
-          class="text-xs font-mono"
-          @click="pickBranch(b)"
-        >
-          {{ b }}
-        </Button>
-      </div>
+      <!--
+        可搜索下拉：分支常有几十上百条，按钮网格既占地方又不能过滤。
+        项目仍用按钮（数量少、一眼看全），两者刻意不统一。
+      -->
+      <SearchSelect
+        v-else
+        :model-value="selectedBranch"
+        :options="branchOptions"
+        placeholder="搜索并选择分支…"
+        empty-text="没有匹配的分支"
+        class="h-9 max-w-[560px] text-xs"
+        @update:model-value="pickBranch"
+      />
     </section>
 
     <section v-if="selectedBranch" class="space-y-2">

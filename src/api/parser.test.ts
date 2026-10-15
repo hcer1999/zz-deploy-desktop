@@ -97,6 +97,14 @@ describe("parseTaskList - 自动化", () => {
     const anyFlag = r.tasks.some((t) => t.canUp || t.canRoll || t.canDelete);
     expect(anyFlag).toBe(true);
   });
+
+  it("解析出导航栏里的当前登录人显示名（通知靠它区分自己与别人）", () => {
+    if (!hasFixture("tasks_auto.html")) throw new Error(MISSING);
+    const r = parseTaskList(fixture("tasks_auto.html"), "auto");
+    expect(r.currentUser).toBe("贺浩成");
+    // 它必须不是登录账号（账号是拼音），否则通知会永远不弹
+    expect(r.currentUser).not.toContain("hehaocheng");
+  });
 });
 
 describe("parseTaskList - Docker", () => {
@@ -147,6 +155,13 @@ describe("parseTaskList - 容错", () => {
   it("完全空的输入也不抛错", () => {
     const r = parseTaskList("", "docker");
     expect(r.tasks).toEqual([]);
+  });
+
+  it("拿不到导航栏时 currentUser 是空串（调用方按身份未知处理）", () => {
+    const html = `<html><body><table><tbody>
+      <tr>${'<td>x</td>'.repeat(13)}</tr>
+    </tbody></table></body></html>`;
+    expect(parseTaskList(html, "auto").currentUser).toBe("");
   });
 
   it("列数不足的行被跳过", () => {

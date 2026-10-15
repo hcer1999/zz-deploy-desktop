@@ -25,8 +25,11 @@ export const useSettingsStore = defineStore("settings", () => {
   const pollIntervalSecs = ref(60);
   const logRetentionDays = ref(30);
   const logRetentionEntries = ref(500);
-  const notifyMode = ref<NotifyMode>("unfocused");
+  const notifyMode = ref<NotifyMode>("always");
   const sidebarExpanded = ref(false);
+  /** 上次在向导里用的部署类型 + 环境 id：下次打开向导预填（null = 还没选过） */
+  const lastDeployType = ref<"auto" | "docker">("auto");
+  const lastEnvId = ref<number | null>(null);
   const loaded = ref(false);
 
   function apply(c: configApi.AppConfig): void {
@@ -39,6 +42,8 @@ export const useSettingsStore = defineStore("settings", () => {
     logRetentionEntries.value = c.logRetentionEntries;
     notifyMode.value = c.notifyMode;
     sidebarExpanded.value = c.sidebarExpanded;
+    lastDeployType.value = c.lastDeployType;
+    lastEnvId.value = c.lastEnvId;
     loaded.value = true;
   }
 
@@ -79,6 +84,8 @@ export const useSettingsStore = defineStore("settings", () => {
       logRetentionEntries: partial.logRetentionEntries ?? logRetentionEntries.value,
       notifyMode: partial.notifyMode ?? notifyMode.value,
       sidebarExpanded: partial.sidebarExpanded ?? sidebarExpanded.value,
+      lastDeployType: partial.lastDeployType ?? lastDeployType.value,
+      lastEnvId: partial.lastEnvId === undefined ? lastEnvId.value : partial.lastEnvId,
     });
     apply(next);
   }
@@ -93,6 +100,8 @@ export const useSettingsStore = defineStore("settings", () => {
     logRetentionEntries,
     notifyMode,
     sidebarExpanded,
+    lastDeployType,
+    lastEnvId,
     loaded,
     load,
     changeBaseUrl,

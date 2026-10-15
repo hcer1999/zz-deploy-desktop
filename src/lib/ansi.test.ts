@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { stripAnsi, ingest, createLogBuffer } from "./ansi";
+import {
+  stripAnsi,
+  ingest,
+  createLogBuffer,
+  reset,
+  flush,
+  normalizeLogText,
+  normalizeToLines,
+} from "./ansi";
 
 describe("stripAnsi", () => {
   it("去掉 SGR 颜色码", () => {
@@ -33,11 +41,12 @@ describe("ingest - 基本追加", () => {
     expect(b.lines.map((l) => l.text)).toEqual(["partial"]);
   });
 
-  it("\\r\\n 与单独的 \\r 都算换行", () => {
+  it("换行与「回行首重画」的区别：\r\n 是换行、单独的 \r 覆盖当前行", () => {
     const b = createLogBuffer();
     // 末尾必须带换行：没有终止符的尾巴按设计留在 pending 里等下一个 chunk 拼接
     ingest(b, "a\r\nb\rc\n");
-    expect(b.lines.map((l) => l.text)).toEqual(["a", "b", "c"]);
+    // b 被 c 原地覆盖 —— 这正是终端里的效果（进度条就是这么刷的）
+    expect(b.lines.map((l) => l.text)).toEqual(["a", "c"]);
   });
 
   it("忽略空行", () => {
@@ -124,5 +133,115 @@ describe("ingest - 上限保护", () => {
     expect(b.pending.length).toBeLessThan(huge.length);
     expect(b.lines).toHaveLength(1);
     expect(b.lines[0].text.length).toBe(huge.length);
+  });
+});
+
+describe("reset - 服务端换窗口时清空", () => {
+  it("清掉行、残留片段与进度行索引", () => {
+    const b = createLogBuffer();
+    ingest(b, "aaaa: Pushing 10%\n");
+    ingest(b, "半行没有换行");
+    reset(b);
+
+    expect(b.lines).toHaveLength(0);
+    expect(b.pending).toBe("");
+    expect(b.progressIndex.size).toBe(0);
+
+    // 清空后同名进度行应该重新作为新行出现，而不是覆盖到旧下标
+    ingest(b, "aaaa: Pushing 90%\n");
+    expect(b.lines).toHaveLength(1);
+    expect(b.lines[0].text).toContain("90%");
+  });
+});
+
+describe("normalizeLogText - ITSM 的 $<3> 行内刷新标记", () => {
+  it("把 $<3> 还原成换行，于是进度行不再被它打散", () => {
+    // 真实字节：ESC[1A ESC[1K $<3> ESC[K $<3> \r 127bb7ebb685: Preparing ESC[1B
+    const raw = "\u001b[1A\u001b[1K$<3>\u001b[K$<3>\r127bb7ebb685: Preparing \u001b[1B";
+    const b = createLogBuffer();
+    ingest(b, raw);
+    flush(b); // 该 chunk 以 \r 结尾，最后一段按约定留在 pending，流结束（或下个 chunk）才落地
+    // 只剩真正的内容行；$<3> 与空行都被吃掉（旧行为下这里会多出一行 "$<3>$<3>"）
+    expect(b.lines.map((l) => l.text)).toEqual(["127bb7ebb685: Preparing"]);
+  });
+
+  it("连续的进度刷新会合并成一行（原地覆盖），不再刷屏", () => {
+    const b = createLogBuffer();
+    const tick = (pct: number): string =>
+      `\u001b[1A\u001b[1K$<3>\u001b[K$<3>\r80d34305d6ca: Pushing  ${pct}.0kB\u001b[1B`;
+    ingest(b, tick(1));
+    ingest(b, tick(2));
+    ingest(b, tick(3));
+    flush(b);
+    expect(b.lines).toHaveLength(1);
+    expect(b.lines[0].text).toBe("80d34305d6ca: Pushing  3.0kB");
+    expect(b.lines[0].updates).toBeGreaterThanOrEqual(3);
+  });
+
+  it("正常日志（没有 $<3>）不受影响", () => {
+    const b = createLogBuffer();
+    ingest(b, "Step 1/7 : FROM node:20\nDone\n");
+    expect(b.lines.map((l) => l.text)).toEqual(["Step 1/7 : FROM node:20", "Done"]);
+  });
+
+  it("normalizeLogText 同时剥 ANSI 并还原换行", () => {
+    expect(normalizeLogText("\u001b[31m红\u001b[0m$<3>下一行")).toBe("红\n下一行");
+  });
+});
+
+describe("ingest - 进度条重画（yarn / next.js）", () => {
+  it("ESC[2K ESC[1G 反复重画同一行 → 只剩最后一帧", () => {
+    const b = createLogBuffer();
+    // 真实字节形态：帧之间只有「擦行 + 光标回行首」，没有 \r 也没有 \n
+    const frame = (n: number): string =>
+      `Generating static pages (${n}/536)  \u001b[36m[==  ]\u001b[39m\u001b[2K\u001b[1G`;
+    ingest(b, frame(0) + frame(74) + frame(242) + `✓ Generating static pages (536/536)\n`);
+
+    expect(b.lines.map((l) => l.text)).toEqual(["✓ Generating static pages (536/536)"]);
+  });
+
+  it("yarn 的进度条同理：几百帧只留最后落地的那条，不刷屏", () => {
+    const b = createLogBuffer();
+    const bar = (done: number, total: number): string =>
+      `[${"#".repeat(6)}] ${done}/${total}\u001b[2K\u001b[1G`;
+    ingest(b, bar(0, 55102) + bar(510, 55102) + bar(55102, 55102) + "[4/4] Building fresh packages...\n");
+
+    // 进度帧被后一帧覆盖，最终这一行是后面那句；期间最新一帧由视图显示 buffer.pending
+    expect(b.lines.map((l) => l.text)).toEqual(["[4/4] Building fresh packages..."]);
+  });
+
+  it("重画只替换当前行，不丢弃：最后一帧仍在 pending 里（视图实时显示它）", () => {
+    const b = createLogBuffer();
+    ingest(b, "[#] 10/100\u001b[2K\u001b[1G[##] 50/100\u001b[2K\u001b[1G[####] 100/100");
+    // 还没换行 → 落在 pending，供视图显示"当前行"
+    expect(b.pending).toBe("[####] 100/100");
+    expect(b.lines).toHaveLength(0);
+  });
+
+  it("normalizeToLines：整段文本按同一套规则过成干净的行（历史回看用）", () => {
+    const raw = [
+      "Generating static pages (0/536)  \u001b[36m[    ]\u001b[39m\u001b[2K\u001b[1G",
+      "Generating static pages (242/536)  \u001b[36m[====]\u001b[39m\u001b[2K\u001b[1G",
+      "✓ Generating static pages (536/536)\n",
+      "\u001b[1A\u001b[1K$<3>\u001b[K$<3>\r80d34305d6ca: Pushing  1.883GB\u001b[1B",
+    ].join("");
+    expect(normalizeToLines(raw)).toEqual([
+      "✓ Generating static pages (536/536)",
+      "80d34305d6ca: Pushing  1.883GB",
+    ]);
+  });
+
+  it("docker 的「光标上移 + 多行进度」不会被误吞：每层各留一行", () => {
+    const b = createLogBuffer();
+    // 一层一帧，帧之间是 ESC[1A（去上一行重画）+ $<3>
+    const frame = (id: string, text: string): string =>
+      `\u001b[1A\u001b[1K$<3>\u001b[K$<3>\r${id}: ${text} \u001b[1B`;
+    ingest(b, frame("127bb7ebb685", "Preparing") + frame("80d34305d6ca", "Waiting"));
+    flush(b);
+
+    expect(b.lines.map((l) => l.text)).toEqual([
+      "127bb7ebb685: Preparing",
+      "80d34305d6ca: Waiting",
+    ]);
   });
 });

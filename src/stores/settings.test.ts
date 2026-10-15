@@ -24,6 +24,8 @@ const CONFIG: configApi.AppConfig = {
   logRetentionEntries: 500,
   notifyMode: "unfocused",
   sidebarExpanded: false,
+  lastDeployType: "auto",
+  lastEnvId: null,
 };
 
 describe("settings store", () => {
@@ -103,6 +105,33 @@ describe("settings store", () => {
     expect(sent.notifyMode).toBe("always");
     expect(sent.logRetentionDays).toBe(30);
     expect(sent.username).toBe("zhangsan");
+  });
+
+  it("patch 只改「上次的部署选择」时不会把其它字段写成默认值", async () => {
+    vi.mocked(configApi.getConfig).mockResolvedValue(CONFIG);
+    vi.mocked(configApi.setConfig).mockImplementation(async (p) => p);
+
+    const s = useSettingsStore();
+    await s.load();
+    await s.patch({ lastDeployType: "docker", lastEnvId: 4 });
+
+    const sent = vi.mocked(configApi.setConfig).mock.calls[0][0];
+    expect(sent.lastDeployType).toBe("docker");
+    expect(sent.lastEnvId).toBe(4);
+    expect(sent.username).toBe("zhangsan");
+    expect(sent.notifyMode).toBe("unfocused");
+  });
+
+  it("lastEnvId 可以显式写成 null（清掉记忆）", async () => {
+    vi.mocked(configApi.getConfig).mockResolvedValue({ ...CONFIG, lastEnvId: 4 });
+    vi.mocked(configApi.setConfig).mockImplementation(async (p) => p);
+
+    const s = useSettingsStore();
+    await s.load();
+    await s.patch({ lastEnvId: null });
+
+    // 用 ?? 回填就会写回 4（清不掉），所以这里必须按 undefined 判断
+    expect(vi.mocked(configApi.setConfig).mock.calls[0][0].lastEnvId).toBeNull();
   });
 
   it("patch 只改主题时不会把侧边栏展开状态写回默认", async () => {

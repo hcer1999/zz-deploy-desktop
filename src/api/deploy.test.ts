@@ -24,6 +24,7 @@ import {
   fetchTaskList,
   submitOnline,
   submitRollback,
+  submitRebuild,
   deleteTask,
   cleanProjectName,
 } from "./deploy";
@@ -221,6 +222,8 @@ describe("fetchTaskList", () => {
     expect(out).toEqual({
       tasks: [],
       pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
+      // 没有导航栏的页面解析不到当前登录人，按身份未知处理
+      currentUser: "",
     });
   });
 });
@@ -240,16 +243,31 @@ describe("行内操作", () => {
     expect(http.httpGet).toHaveBeenCalledWith("/dockerdeploy/docker/task/7/roll/");
   });
 
+  it("重新构建走 /rebuild/（两种部署类型都拼对前缀）", async () => {
+    vi.mocked(http.httpGet).mockResolvedValue(res(302, "/x/"));
+    expect(await submitRebuild("docker", 148691)).toBe(true);
+    expect(http.httpGet).toHaveBeenCalledWith("/dockerdeploy/docker/task/148691/rebuild/");
+
+    expect(await submitRebuild("auto", 7)).toBe(true);
+    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/task/7/rebuild/");
+  });
+
+  it("重新构建失败时返回 false", async () => {
+    vi.mocked(http.httpGet).mockResolvedValue(res(500));
+    expect(await submitRebuild("docker", 7)).toBe(false);
+  });
+
   it("删除走 /submit/task/{id}/", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(302, "/x/"));
     expect(await deleteTask("auto", 7)).toBe(true);
     expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/submit/task/7/");
   });
 
-  it("会话过期时三个操作都判为失败", async () => {
+  it("会话过期时四个操作都判为失败", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(302, "/login/"));
     expect(await submitOnline("auto", 7)).toBe(false);
     expect(await submitRollback("auto", 7)).toBe(false);
+    expect(await submitRebuild("auto", 7)).toBe(false);
     expect(await deleteTask("auto", 7)).toBe(false);
   });
 

@@ -2,7 +2,8 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Runtime, State};
@@ -12,7 +13,7 @@ use tokio::task::AbortHandle;
 use crate::error::AppError;
 use crate::logs::store::LogStore;
 use crate::session::SessionState;
-use crate::ws::log_socket::{LogEnd, backoff_delay, connect_and_stream};
+use crate::ws::log_socket::{StreamEnd, backoff_delay, connect_and_stream};
 
 /// 与插件一致：初次连接失败后最多再重连 3 次（spec §4.3）
 const MAX_RETRIES: u32 = 3;
@@ -46,6 +47,8 @@ impl LogSessions {
 struct LogData {
     session_id: String,
     chunk: String,
+    /// 服务端换了窗口（快照不再包含前端已有内容）→ 前端先清空再追加
+    reset: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -53,16 +56,40 @@ struct LogData {
 struct LogStatus {
     session_id: String,
     state: &'static str,
+    /// 失败时服务端的原话（例：`数据格式错误`），前端直接展示，不再把错误吞掉
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<String>,
 }
 
-fn emit_status<R: Runtime>(app: &AppHandle<R>, session_id: &str, state: &'static str) {
+fn emit_status<R: Runtime>(
+    app: &AppHandle<R>,
+    session_id: &str,
+    state: &'static str,
+    detail: Option<String>,
+) {
     let _ = app.emit(
         "log://status",
         LogStatus {
             session_id: session_id.to_string(),
             state,
+            detail,
         },
     );
+}
+
+/// 服务端推的是**全量快照**，所以只需取「比已知内容多出来的那段」。
+///
+/// - 快照以旧内容为前缀（最常见：日志在增长）→ 尾部增量
+/// - 旧内容反而是快照的前缀（本地留存更长）→ 没有新内容
+/// - 两者对不上（服务端换了窗口）→ 整段当新内容，并标记 `reset`
+fn snapshot_delta<'a>(known: &str, snapshot: &'a str) -> (&'a str, bool) {
+    if let Some(rest) = snapshot.strip_prefix(known) {
+        (rest, false)
+    } else if known.starts_with(snapshot) {
+        ("", false)
+    } else {
+        (snapshot, true)
+    }
 }
 
 /// 打开一条日志流。立即返回 session_id，数据通过 `log://data` 事件推送。
@@ -107,55 +134,120 @@ pub async fn log_open<R: Runtime>(
     let sessions_inner = sessions.inner.clone();
 
     let handle = tauri::async_runtime::spawn(async move {
+        // 落盘增量与「推给前端的增量」分开维护：
+        // 文件里可能已经有上一次订阅留下的内容（同一任务再打开一次），不能再追加一遍；
+        // 而前端会话总是从空开始（重开标签就是新的 buffer）。
+        // 两者的对比基准都是「服务端上一次推的全量快照」。
+        let mut file_last = store_for_task
+            .read(&dt, task_id)
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+        let mut ui_last = String::new();
+        let mut got_any = false;
         let mut attempt = 0u32;
-        loop {
-            // 本次连接是否收到了 code=1。Ok(()) 也可能只是"被干净地关掉"，
-            // 必须靠这个标志区分，否则会把没写完的日志当成已结束（spec §4.3）。
-            let saw_finish = Arc::new(AtomicBool::new(false));
-            let fin = saw_finish.clone();
+        let mut last_error = String::new();
 
-            let on_chunk = {
+        loop {
+            let mut new_this_attempt = false;
+
+            let on_snapshot = {
                 let app = app_for_task.clone();
                 let sid = sid.clone();
                 let store = store_for_task.clone();
                 let dt = dt.clone();
-                move |chunk: String| {
-                    // 落盘保留原始内容（未剥离 ANSI），显示时才剥离
-                    let _ = store.append(&dt, task_id, &chunk);
-                    let _ = app.emit(
-                        "log://data",
-                        LogData {
-                            session_id: sid.clone(),
-                            chunk,
-                        },
-                    );
-                }
-            };
-            let on_end = move |end: LogEnd| {
-                if end == LogEnd::Finished {
-                    fin.store(true, Ordering::SeqCst);
+                let file_last = &mut file_last;
+                let ui_last = &mut ui_last;
+                let got_any = &mut got_any;
+                let new_this_attempt = &mut new_this_attempt;
+                move |snapshot: &str| -> bool {
+                    *got_any = true;
+
+                    // 落盘：只追加新增那一段（快照是全量，直接 append 会把同一段日志写很多遍）
+                    let (file_chunk, _) = snapshot_delta(file_last, snapshot);
+                    if !file_chunk.is_empty() {
+                        let _ = store.append(&dt, task_id, file_chunk);
+                    }
+
+                    // 推给前端：同样只发增量，并告知是否需要先清空（服务端换窗口时）
+                    let (chunk, reset) = snapshot_delta(ui_last, snapshot);
+                    if !chunk.is_empty() || reset {
+                        *new_this_attempt = true;
+                        let _ = app.emit(
+                            "log://data",
+                            LogData {
+                                session_id: sid.clone(),
+                                chunk: chunk.to_string(),
+                                reset,
+                            },
+                        );
+                    }
+
+                    *file_last = snapshot.to_string();
+                    *ui_last = snapshot.to_string();
+
+                    // 快照里已经有收尾行 → 日志写完，停止订阅（返回 false）
+                    !crate::ws::log_socket::log_is_complete(snapshot)
                 }
             };
 
-            let result =
-                connect_and_stream(&url, &cookie, task_id, &dt, on_chunk, on_end).await;
+            let outcome =
+                connect_and_stream(&url, &cookie, task_id, &dt, on_snapshot).await;
 
-            if result.is_ok() && saw_finish.load(Ordering::SeqCst) {
-                emit_status(&app_for_task, &sid, "finished");
+            match outcome {
+                // 日志已写完
+                Ok(StreamEnd::Complete) => {
+                    emit_status(&app_for_task, &sid, "finished", None);
+                    break;
+                }
+                // 服务端明确拒绝：重连没有意义
+                Ok(StreamEnd::Rejected(msg)) => {
+                    if got_any {
+                        // 已经拿到快照（只是它没含收尾行）→ 当结束处理，不报错
+                        emit_status(&app_for_task, &sid, "finished", None);
+                    } else {
+                        // 实测：构建已结束且服务端不再持有该日志时，回的就是
+                        // {"code":0,"msg":"数据格式错误"}——把原话透给用户
+                        emit_status(&app_for_task, &sid, "error", Some(msg));
+                    }
+                    break;
+                }
+                Ok(StreamEnd::Closed) => {
+                    // 服务端推完快照会直接 reset，所以这里不代表出错。
+                    // 只要这次拿到了新内容就说明它在持续输出，重连继续跟（上限另算）
+                }
+                Err(e) => last_error = e.message,
+            }
+
+            // 有新内容 → 把重试计数归零，长时间构建偶尔断线也能接着跟；
+            // 什么都没新增（例如订阅一个已结束的任务）才计数，避免无限重连
+            if new_this_attempt {
+                attempt = 0;
+            } else {
+                attempt += 1;
+            }
+
+            if attempt > MAX_RETRIES {
+                if got_any {
+                    // 内容已经不长了，也没报错，就当它结束（比假报错合理）
+                    emit_status(&app_for_task, &sid, "finished", None);
+                } else {
+                    let detail = if last_error.is_empty() { None } else { Some(last_error) };
+                    emit_status(&app_for_task, &sid, "error", detail);
+                }
                 break;
             }
 
-            if attempt >= MAX_RETRIES {
-                emit_status(&app_for_task, &sid, "error");
-                if let Err(e) = result {
-                    eprintln!("日志连接最终失败：{e}");
-                }
-                break;
-            }
-
-            attempt += 1;
-            emit_status(&app_for_task, &sid, "disconnected");
-            tokio::time::sleep(backoff_delay(attempt)).await;
+            emit_status(&app_for_task, &sid, "disconnected", None);
+            // 有新内容说明构建还在输出，只是这条连接被服务端 reset 了：
+            // 立刻重连继续跟（重连是幂等的：快照会被比对掉，不会重复推送/落盘）；
+            // 没新内容则是真的没得可读，走退避并计入重试次数。
+            let delay = if new_this_attempt {
+                Duration::from_millis(500)
+            } else {
+                backoff_delay(attempt)
+            };
+            tokio::time::sleep(delay).await;
         }
     });
 
@@ -205,4 +297,39 @@ pub async fn log_close<R: Runtime>(
     let active = sessions.inner.lock().await.len();
     crate::tray::set_active_builds(&app, active);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::snapshot_delta;
+
+    /// 服务端每次推全量快照，落盘/推前端只能取增量。
+    /// 没有这层，重复订阅（重试、重开标签）会把同一段日志写很多遍——
+    /// 实测留痕文件里就有同一份 86KB 日志被写了 4 遍。
+    #[test]
+    fn delta_is_the_tail_when_snapshot_grows() {
+        let (chunk, reset) = snapshot_delta("line1\n", "line1\nline2\n");
+        assert_eq!(chunk, "line2\n");
+        assert!(!reset);
+    }
+
+    #[test]
+    fn delta_is_empty_when_nothing_new() {
+        let (chunk, reset) = snapshot_delta("same\n", "same\n");
+        assert_eq!(chunk, "");
+        assert!(!reset);
+
+        // 本地留存反而更长（上次订阅拿到过更多）→ 没有新内容
+        let (chunk, reset) = snapshot_delta("a\nb\nc\n", "a\n");
+        assert_eq!(chunk, "");
+        assert!(!reset);
+    }
+
+    /// 快照与已知内容对不上（服务端换了窗口）→ 整段当新内容，并让前端先清空
+    #[test]
+    fn mismatched_snapshot_is_flagged_as_reset() {
+        let (chunk, reset) = snapshot_delta("old-a\nold-b\n", "new-a\nnew-b\n");
+        assert_eq!(chunk, "new-a\nnew-b\n");
+        assert!(reset);
+    }
 }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { submitOnline, submitRollback, deleteTask } from "@/api/deploy";
+import { submitOnline, submitRollback, submitRebuild, deleteTask } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import type { DeployTask } from "@/api/parser";
 import { useTasksStore } from "@/stores/tasks";
@@ -92,15 +92,32 @@ function openLogTab(t: DeployTask): void {
 
 // ---------- 行内操作 ----------
 
-type ActionKind = "online" | "rollback" | "delete";
+type ActionKind = "online" | "rollback" | "rebuild" | "delete";
 const pending = ref<{ kind: ActionKind; task: DeployTask } | null>(null);
 const actionBusy = ref(false);
 const flash = ref("");
 
-const ACTION_TEXT: Record<ActionKind, { title: string; confirm: string; danger: boolean }> = {
-  online: { title: "确认上线？", confirm: "上线", danger: false },
-  rollback: { title: "确认回滚？", confirm: "回滚", danger: false },
-  delete: { title: "确认删除？", confirm: "删除", danger: true },
+const ACTION_TEXT: Record<
+  ActionKind,
+  { title: string; confirm: string; danger: boolean; done: string }
+> = {
+  online: { title: "确认上线？", confirm: "上线", danger: false, done: "已触发上线" },
+  rollback: { title: "确认回滚？", confirm: "回滚", danger: false, done: "已触发回滚" },
+  rebuild: {
+    title: "确认重新构建？",
+    confirm: "重新构建",
+    danger: false,
+    done: "已触发重新构建",
+  },
+  delete: { title: "确认删除？", confirm: "删除", danger: true, done: "已删除" },
+};
+
+/** 四个动作的接口形状一致（type, taskId）→ boolean，所以直接按 kind 取函数 */
+const ACTIONS: Record<ActionKind, typeof submitOnline> = {
+  online: submitOnline,
+  rollback: submitRollback,
+  rebuild: submitRebuild,
+  delete: deleteTask,
 };
 
 function ask(kind: ActionKind, task: DeployTask): void {
@@ -112,8 +129,7 @@ async function runAction(): Promise<void> {
   if (!p) return;
   actionBusy.value = true;
   try {
-    const fn =
-      p.kind === "online" ? submitOnline : p.kind === "rollback" ? submitRollback : deleteTask;
+    const fn = ACTIONS[p.kind];
     const ok = await fn(tasks.deployType, p.task.taskId);
     if (!ok) {
       // 会话过期也会走到这里（isActionOk 已排除登录跳转），
@@ -121,8 +137,7 @@ async function runAction(): Promise<void> {
       flash.value = "操作失败，请重试";
       return;
     }
-    flash.value =
-      p.kind === "online" ? "已触发上线" : p.kind === "rollback" ? "已触发回滚" : "已删除";
+    flash.value = ACTION_TEXT[p.kind].done;
     if (p.kind === "delete") tasks.removeLocal(p.task.taskId);
     pending.value = null;
     await tasks.refresh();
@@ -239,6 +254,20 @@ async function runAction(): Promise<void> {
                   @click="ask('rollback', t)"
                 >
                   回滚
+                </Button>
+                <!--
+                  只有构建失败的任务才能重新构建。服务端只给「构建状态」的文案，
+                  没有结构化的失败标志位，所以按关键字判断（与 StatusBadge 同一套约定）。
+                -->
+                <Button
+                  v-if="t.buildStatus.includes('失败')"
+                  data-test="rebuild"
+                  variant="outline"
+                  size="sm"
+                  class="h-6 px-2 text-[11px]"
+                  @click="ask('rebuild', t)"
+                >
+                  重新构建
                 </Button>
                 <Button
                   v-if="t.canDelete"

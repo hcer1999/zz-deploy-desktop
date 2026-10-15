@@ -8,10 +8,14 @@ export interface AppConfig {
   pollIntervalSecs: number;
   logRetentionDays: number;
   logRetentionEntries: number;
-  /** "unfocused"（仅窗口失焦时，默认）| "always"	*/
+  /** "always"（默认：不管窗口是否在前台都弹）| "unfocused"（仅窗口失焦时） */
   notifyMode: "unfocused" | "always";
   /** 侧边栏是否展开（重启后保持） */
   sidebarExpanded: boolean;
+  /** 上次在向导里用的部署类型（下次打开向导预填） */
+  lastDeployType: "auto" | "docker";
+  /** 上次在向导里选的环境 id；null = 还没选过（首次运行不预填） */
+  lastEnvId: number | null;
 }
 
 export function getConfig(): Promise<AppConfig> {

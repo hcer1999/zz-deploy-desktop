@@ -1,18 +1,13 @@
 import { watch } from "vue";
-import {
-  isPermissionGranted,
-  onAction,
-  requestPermission,
-  sendNotification,
-} from "@tauri-apps/plugin-notification";
+import { onAction } from "@tauri-apps/plugin-notification";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
-import { useSettingsStore } from "@/stores/settings";
+import { useBatchStore } from "@/stores/batch";
 import { setOpenLog } from "@/stores/tabPayload";
+import { sendSystemNotification } from "@/lib/notify";
+import { terminalState, wasBuilding, type BuildResult } from "@/lib/taskStatus";
 import type { DeployTask } from "@/api/parser";
-
-export type BuildResult = "success" | "failed";
 
 /**
  * 已经通知过的 (taskId, 终态) —— 去重。
@@ -25,55 +20,51 @@ const notified = new Set<string>();
 /** 长时间运行时的防膨胀上限（老 key 已无去重价值） */
 const NOTIFIED_CACHE_LIMIT = 500;
 
-async function ensurePermission(): Promise<boolean> {
-  if (await isPermissionGranted()) return true;
-  return (await requestPermission()) === "granted";
-}
-
-/** 服务端只给文案，没有结构化状态，只能按关键字判定终态 */
-function terminalState(t: DeployTask): BuildResult | null {
-  if (t.buildStatus.includes("成功")) return "success";
-  if (t.buildStatus.includes("失败")) return "failed";
-  return null;
-}
-
-function wasBuilding(status: string): boolean {
-  return status.includes("中") || status.includes("等待");
-}
-
 /**
  * 构建完成通知（spec §6.2）。
  *
  * 两个触发点都要用，但必须去重：
  * 1. 日志流收到 finished（用户正开着日志标签）
  * 2. 任务列表轮询时发现某任务从"构建中"跃迁到终态
+ *
+ * 属于批量部署的任务由 `stores/batch.ts` 统一汇总成一条通知（见那里的 tick），
+ * 这里只负责**抑制**它们的单条通知。
  */
 export function useBuildNotifications() {
   const tasks = useTasksStore();
   const tabs = useTabsStore();
-  const settings = useSettingsStore();
+  const batches = useBatchStore();
 
   /** 记录上一次看到的构建状态，用于 diff */
   let lastSeen = new Map<number, string>();
 
+  /**
+   * 只认「我自己提交的构建」。
+   *
+   * 列表页导航栏里有当前登录人的显示名（见 parseTaskList），与「提交人」列同一套名字，
+   * 直接比对即可。解析不到身份（currentUser 为空）时**一律不弹**：
+   * 宁可漏报，也不要退回「谁提交的都弹」这个已知的骚扰问题。
+   */
+  function isMine(t: DeployTask): boolean {
+    const me = tasks.currentUser.trim();
+    return me !== "" && t.submitter.trim() === me;
+  }
+
   function notifyOnce(t: DeployTask, state: BuildResult): void {
+    if (!isMine(t)) return;
+    // 批次里的任务：单条抑制，由批次结算后发一条汇总
+    if (batches.claimsTask(t.taskId)) return;
     const key = `${t.taskId}_${state}`;
     if (notified.has(key)) return;
     if (notified.size >= NOTIFIED_CACHE_LIMIT) notified.clear();
     notified.add(key);
 
-    void (async () => {
-      if (!(await ensurePermission())) return;
-      // 触发条件由设置决定（spec §6.2）：默认仅窗口失焦时通知，
-      // 避免你正看着界面还被弹；改成"始终通知"就一律弹。
-      if (settings.notifyMode !== "always" && (await getCurrentWindow().isFocused())) return;
-      sendNotification({
-        // id 用 taskId：点击通知时靠它找回是哪个任务（见 focusTask）
-        id: t.taskId,
-        title: state === "success" ? "构建成功" : "构建失败",
-        body: `${t.projectName} · ${t.envName}\n${t.title}`,
-      });
-    })();
+    void sendSystemNotification({
+      // id 用 taskId：点击通知时靠它找回是哪个任务（见 focusTask）
+      id: t.taskId,
+      title: state === "success" ? "构建成功" : "构建失败",
+      body: `${t.projectName} · ${t.envName}\n${t.title}`,
+    });
   }
 
   /**

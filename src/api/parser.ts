@@ -33,6 +33,12 @@ export interface PageInfo {
 export interface TaskListResult {
   tasks: DeployTask[];
   pageInfo: PageInfo;
+  /**
+   * 当前登录人的显示名（页面左侧导航栏里的那个名字）。
+   * 「提交人」列用的就是同一套名字，构建完成通知据此只弹自己提交的任务。
+   * 解析不到时是空串，调用方按「身份未知」处理。
+   */
+  currentUser: string;
 }
 
 export function parseProjects(html: string): Project[] {
@@ -125,7 +131,17 @@ export function parseTaskList(html: string, type: 'auto' | 'docker' = 'auto'): T
   });
 
   const pageInfo = parsePageInfo($);
-  return { tasks, pageInfo };
+  return { tasks, pageInfo, currentUser: parseCurrentUser($) };
+}
+
+/**
+ * 导航栏里的当前登录人显示名。
+ *
+ * 注意它不是登录账号：账号是拼音（fixture 里的头像文件名 `..._hehaocheng.png`），
+ * 而这里和「提交人」列都是中文显示名（如 `贺浩成`）。
+ */
+function parseCurrentUser($: ReturnType<typeof cheerio.load>): string {
+  return $('div.profile-element strong.font-bold').first().text().trim();
 }
 
 function parsePageInfo($: ReturnType<typeof cheerio.load>): PageInfo {

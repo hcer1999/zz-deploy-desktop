@@ -8,6 +8,7 @@ import { useTabsStore } from "@/stores/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { VueDraggable } from "vue-draggable-plus";
 import { GripVertical } from "@lucide/vue";
 
@@ -17,6 +18,37 @@ const tabs = useTabsStore();
 
 const expandedId = ref<string | null>(null);
 const pendingDelete = ref<string | null>(null);
+
+// ---------- 筛选 ----------
+
+const filter = ref("");
+const filterActive = computed(() => filter.value.trim() !== "");
+
+/** 匹配项目名 / 环境 / 分支 / 类型。空白字符归一化，方便按「正式 环境」这种写法搜 */
+const filteredItems = computed(() => {
+  const q = filter.value.trim().toLowerCase();
+  if (!q) return favorites.items;
+  return favorites.items.filter((f) =>
+    [f.projectName, f.envName, f.branch ?? "", f.deployType === "auto" ? "自动化" : "Docker"]
+      .join(" ")
+      .toLowerCase()
+      .includes(q),
+  );
+});
+
+/**
+ * 列表渲染源。
+ *
+ * 筛选时只渲染命中的子集，但必须**同时禁用拖动**（见模板的 `:disabled`）：
+ * 排序语义只在完整列表上成立，否则拖动会把子集的顺序写回整表。
+ * setter 里再挡一道，避免将来忘了改 disabled 就把数据写坏。
+ */
+const displayedItems = computed({
+  get: () => filteredItems.value,
+  set: (next) => {
+    if (!filterActive.value) favorites.items = next;
+  },
+});
 
 interface Draft {
   branches: string[];
@@ -223,15 +255,34 @@ async function confirmDelete(): Promise<void> {
   <div class="p-6 space-y-4">
     <h1 class="text-base font-semibold">收藏</h1>
 
+    <div v-if="favorites.items.length > 0" class="flex items-center gap-3">
+      <Input
+        v-model="filter"
+        data-test="fav-filter"
+        placeholder="筛选收藏…（项目 / 环境 / 分支）"
+        class="h-8 max-w-[320px] text-xs"
+      />
+      <span v-if="filterActive" class="text-[11px] text-text-muted">
+        匹配 {{ filteredItems.length }} / 共 {{ favorites.items.length }}
+      </span>
+    </div>
+
     <div v-if="favorites.items.length === 0" class="text-xs text-text-muted py-8 text-center">
       暂无收藏。在「新建部署」里选好项目后点「保存为收藏」。
+    </div>
+
+    <div
+      v-else-if="filteredItems.length === 0"
+      class="text-xs text-text-muted py-8 text-center"
+    >
+      没有匹配的收藏
     </div>
 
     <p v-if="reorderError" class="text-xs text-danger">{{ reorderError }}</p>
 
     <VueDraggable
-      v-if="favorites.items.length > 0"
-      v-model="favorites.items"
+      v-if="filteredItems.length > 0"
+      v-model="displayedItems"
       :animation="150"
       handle=".drag-handle"
       ghost-class="opacity-40"
@@ -239,10 +290,11 @@ async function confirmDelete(): Promise<void> {
       :force-fallback="true"
       :fallback-on-body="true"
       :fallback-tolerance="4"
+      :disabled="filterActive"
       @end="onReorderEnd"
     >
       <div
-        v-for="f in favorites.items"
+        v-for="f in displayedItems"
         :key="f.id"
         :class="[
           'rounded-md border bg-surface overflow-hidden',
@@ -251,9 +303,13 @@ async function confirmDelete(): Promise<void> {
       >
         <div class="flex items-center gap-3 px-4 py-3">
           <button
-            class="drag-handle cursor-grab active:cursor-grabbing text-text-muted hover:text-text shrink-0"
-            title="拖动以排序"
-            aria-label="拖动以排序"
+            :class="[
+              'drag-handle shrink-0 text-text-muted hover:text-text',
+              filterActive ? 'cursor-not-allowed opacity-40' : 'cursor-grab active:cursor-grabbing',
+            ]"
+            :disabled="filterActive"
+            :title="filterActive ? '筛选状态下不可拖动排序' : '拖动以排序'"
+            :aria-label="filterActive ? '筛选状态下不可拖动排序' : '拖动以排序'"
           >
             <GripVertical :size="16" />
           </button>

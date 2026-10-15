@@ -1,14 +1,18 @@
 # 至真部署（桌面客户端）
 
-内部运维平台 ITSM 的部署桌面客户端。把原来 VSCode 插件（`vscode-zz-deploy`）的能力搬到独立应用里，
-并补上插件做不到的桌面体验。
+内部运维平台 ITSM 的部署桌面客户端：接入原运维平台的部署功能，
+并补上网页端做不到的桌面体验。
 
 - **部署**：自动化部署 / Docker 部署，选环境 → 项目 → 分支 → Commit → 提交
-- **实时构建日志**：WebSocket 流式输出，docker 的进度行原地更新；日志同时落盘留存
-- **收藏**：支持「仅项目」与「项目+分支」两种粒度，可拖动排序，一键复用（部署时分支仍可改）
-- **任务列表**：上下线 / 回滚 / 删除 / 查看日志，自动轮询
+- **批量部署**：购物车式批量计划——每项自带环境/项目/分支/commit，可**跨环境、跨分支、跨部署类型**攒一批再一起提交；右侧清单可移除与逐项修改，整批构建完**只汇总一条通知**；可选「构建成功即自动上线」（默认关）；可**存成批量收藏**反复用、随时修改
+- **实时构建日志**：WebSocket 流式输出（服务端推全量快照，客户端只追加增量），docker 的进度行原地更新；**语法高亮**（失败/警告/成功/Step/进度/hash）、**查找与命中高亮**（⌘F）、`$<3>` 还原为换行；日志同时落盘留存
+- **收藏**：支持「仅项目」与「项目+分支」两种粒度，可按 项目 / 环境 / 分支 筛选，可拖动排序（筛选时禁用拖动），一键复用（部署时分支仍可改）
+- **任务列表**：上下线 / 回滚 / 重新构建（仅构建失败时） / 删除 / 查看日志，自动轮询
 - **历史日志**：列表、搜索、展开、导出、删除、按天数和条数保留
-- **桌面能力**：系统托盘与关闭到托盘、构建完成系统通知、键盘快捷键、深浅主题、侧边栏可展开
+- **首页（启动器）**：没打开标签时显示品牌头与六个常用入口，点卡片即进入
+- **关于页**：介绍、更新日志（`src/data/changelog.ts`，发版时在头部加一条）、logo 原图、版本号与构建时间
+- **品牌标**：`src/assets/reframe-draw-on.svg`（draw-on：先画方块与沙漏的描边再填色；资产自带青底 `#00ADC3`）
+- **桌面能力**：启动欢迎页（同时遮住登录状态判定的空窗，避免登录页闪屏）、系统托盘与关闭到托盘、构建完成系统通知（**默认始终通知、且只通知自己提交的任务**）、键盘快捷键、深浅主题、侧边栏可展开
 
 ---
 
@@ -50,8 +54,9 @@ sudo dpkg -i 至真部署_*.deb
 
   | 文件 | 内容 |
   |---|---|
-  | `config.json` | 地址、主题、关闭行为、轮询间隔、日志保留策略、通知条件、侧边栏展开 |
+  | `config.json` | 地址、主题、关闭行为、轮询间隔、日志保留策略、通知条件、侧边栏展开、上次用的部署类型与环境 |
   | `favorites.json` | 收藏 |
+  | `batch_favorites.json` | 批量部署收藏（环境 + 分支 + 一批项目；不记 commit 与自动上线开关） |
   | `credentials.bin` + `credentials.key` | 记住的账号密码（AES-256-GCM 加密，**不写系统钥匙串**） |
   | `logs/` | 历史日志（索引 + 正文） |
 
@@ -91,6 +96,7 @@ cd src-tauri
 cargo test -- --ignored        # 真实续登 e2e（会消耗一次登录）
 cargo run --example probe_cookies      # 探查 CSRF / cookie 行为
 cargo run --example capture_fixtures   # 刷新 HTML fixture（ITSM 改版时用）
+cargo run --example probe_log_ws -- <taskId> auto   # 打印日志 WebSocket 的原始帧（排查「日志不实时更新」）
 ```
 
 ### 打包
@@ -119,6 +125,7 @@ npm run tauri build -- --target universal-apple-darwin # macOS 通用包（需�
 | `src-tauri/tauri.conf.json` 的 `version` | **真值**：`getVersion()` 与 dmg/msi 文件名都用它 |
 | `package.json` 的 `version` | 前端工程版本 |
 | `src-tauri/Cargo.toml` 的 `version` | crate 版本 |
+| `src-tauri/Cargo.lock` 里的 `zz-deploy-desktop` 条目 | 顺手一起改：不改的话下次 `cargo` 会改回来，出现无谓 diff |
 
 窗口标题与设置页「关于」都取运行时版本，所以不会与上面漂移。
 
@@ -216,9 +223,13 @@ docs/               设计与实施文档（见下）
 
 | 层 | 工具 | 覆盖 |
 |---|---|---|
-| 前端业务 | Vitest + jsdom | store 状态迁移、日志行缓冲/ANSI、通知去重、标签生命周期、收藏粒度与部署流程、外壳交互 |
+| 前端业务 | Vitest + jsdom | store 状态迁移、日志行缓冲/ANSI/`$<3>` 还原、语法高亮与查找、日志自动滚动（含后台标签切回）、通知去重与**只通知自己提交的任务**、标签生命周期、收藏粒度/筛选与部署流程、外壳交互 |
 | Rust | `cargo test` | HTTP 语义、续登、解析器（真实 fixture 快照）、日志留存与保留策略、WebSocket 客户端、配置 |
 | 真实环境 | `cargo test -- --ignored` | 真实 ITSM 续登、fixture 抓取 |
+
+排查「日志不实时更新」时用 `cargo run --example probe_log_ws -- <taskId> auto`：它用应用保存的凭据登录，
+把日志 WebSocket 收到的**原始帧**按时间打出来，并交叉验证页面里的 `session_key` 与 cookie 里的
+`sessionid` 是否一致（不一致时 HTTP 一切正常、WS 却永远收不到数据，而界面只显示「已连接」）。
 
 无法用 jsdom 覆盖的部分（拖放、下拉在真实引擎里的行为）用 **CDP 驱动真实 Chromium + 打桩 Tauri IPC** 的方式验证，
 思路见 `docs/superpowers/plans/2026-10-13-plan5-favorites-granularity-and-shell.md` 的验收章节。
@@ -228,6 +239,6 @@ docs/               设计与实施文档（见下）
 | 文档 | 内容 |
 |---|---|
 | [`docs/superpowers/specs/2026-10-13-zz-deploy-desktop-design.md`](docs/superpowers/specs/2026-10-13-zz-deploy-desktop-design.md) | **设计真值**：架构、IPC 契约、界面、体验增强、存储、约束与取舍 |
-| `docs/superpowers/plans/*.md` | 各阶段实施计划与执行结果（Plan 1 → Plan 5） |
+| `docs/superpowers/plans/*.md` | 各阶段实施计划与执行结果（Plan 1 → Plan 6） |
 | [`docs/install-unsigned.md`](docs/install-unsigned.md) | 未签名版本的安装放行与签名不变量 |
 | [`docs/distribution.md`](docs/distribution.md) | 分发指南：产物、按平台选包、新版本怎么发、CI 矩阵示例 |

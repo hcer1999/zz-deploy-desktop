@@ -10,6 +10,15 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [vue(), tailwindcss()],
 
+  /*
+   * 构建时间注入：关于页要显示"这个包是什么时候构建的"。
+   * 不能用运行时 Date — 那是用户打开应用的时间，不是构建时间。
+   * vite.config 在构建开始时求值一次，所以这里就是准确的构建时刻。
+   */
+  define: {
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
+
   resolve: {
     alias: {
       // ESM 下没有 __dirname，必须用 import.meta.url

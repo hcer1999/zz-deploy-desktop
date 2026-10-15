@@ -59,7 +59,8 @@ Intel Mac 装 arm64 包会直接报无法打开（Rosetta 是 x86→arm 方向�
 
 ## 5. 发新版本
 
-1. 改版本号：`package.json` 的 `version` 与 `src-tauri/tauri.conf.json` 的 `version`（打包用后者）。
+1. 改版本号：`package.json`、`src-tauri/tauri.conf.json`（打包用后者）、`src-tauri/Cargo.toml`，
+   以及 `src-tauri/Cargo.lock` 里的 `zz-deploy-desktop` 条目（不改的话下次 `cargo` 会改回来）。
 2. `npm run tauri build`。
 3. 直接把新 `.dmg` 发出去，覆盖安装即可（拖进「应用程序」时选择替换）。
    **配置、收藏、历史日志、凭据都在应用数据目录里，不受影响**——前提是 `identifier`

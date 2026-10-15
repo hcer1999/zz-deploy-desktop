@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { History, List, PanelLeftClose, PanelLeftOpen, Plus, Settings, Star } from "@lucide/vue";
+import { History, Info, Layers, List, PanelLeftClose, PanelLeftOpen, Plus, Settings, Star } from "@lucide/vue";
 import type { Component } from "vue";
 import { useTabsStore, type TabKind } from "@/stores/tabs";
 import { useSettingsStore } from "@/stores/settings";
@@ -9,10 +9,12 @@ const settings = useSettingsStore();
 
 const items: { kind: TabKind; label: string; icon: Component }[] = [
   { kind: "wizard", label: "新建部署", icon: Plus },
+  { kind: "batch", label: "批量部署", icon: Layers },
   { kind: "favorites", label: "收藏", icon: Star },
   { kind: "list", label: "任务列表", icon: List },
   { kind: "history", label: "历史日志", icon: History },
   { kind: "settings", label: "设置", icon: Settings },
+  { kind: "about", label: "关于", icon: Info },
 ];
 
 function isActive(kind: TabKind): boolean {

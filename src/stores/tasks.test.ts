@@ -33,6 +33,7 @@ function task(id: number, over: Partial<DeployTask> = {}): DeployTask {
 const PAGE = {
   tasks: [task(1), task(2)],
   pageInfo: { currentPage: 1, totalPages: 5, hasPrev: false, hasNext: true },
+  currentUser: "zhangsan",
 };
 
 describe("tasks store", () => {
@@ -58,6 +59,18 @@ describe("tasks store", () => {
     s.search = "zz-pay";
     await s.refresh();
     expect(deployApi.fetchTaskList).toHaveBeenCalledWith("docker", 3, "zz-pay");
+  });
+
+  it("回填当前登录人显示名；页面拿不到时不覆盖已学到的身份", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue(PAGE);
+    const s = useTasksStore();
+    await s.refresh();
+    expect(s.currentUser).toBe("zhangsan");
+
+    // 极端情况：某次响应没有导航栏（解析出空串）时不能把身份清掉
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, currentUser: "" });
+    await s.refresh();
+    expect(s.currentUser).toBe("zhangsan");
   });
 
   it("发起请求期间 loading 为 true", async () => {

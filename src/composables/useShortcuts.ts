@@ -1,8 +1,16 @@
 import { onMounted, onUnmounted } from "vue";
 import { useTabsStore, type TabKind } from "@/stores/tabs";
 
-/** 侧栏里的固定顺序，Cmd/Ctrl+1..5 按这个顺序切换 */
-const FIXED_ORDER: TabKind[] = ["wizard", "favorites", "list", "history", "settings"];
+/** 侧栏里的固定顺序，Cmd/Ctrl+1..7 按这个顺序切换 */
+const FIXED_ORDER: TabKind[] = [
+  "wizard",
+  "batch",
+  "favorites",
+  "list",
+  "history",
+  "settings",
+  "about",
+];
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -46,7 +54,7 @@ export function handleKeydown(e: KeyboardEvent, tabs: TabsStore): boolean {
       return true;
     default: {
       const n = Number(e.key);
-      if (Number.isInteger(n) && n >= 1 && n <= 5) {
+      if (Number.isInteger(n) && n >= 1 && n <= FIXED_ORDER.length) {
         e.preventDefault();
         tabs.open({ kind: FIXED_ORDER[n - 1] });
         return true;

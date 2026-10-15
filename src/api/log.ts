@@ -20,10 +20,20 @@ export function logClose(sessionId: string): Promise<void> {
 
 export interface LogDataEvent {
   sessionId: string;
+  /**
+   * 新增的日志内容。
+   *
+   * 注意服务端推的是**全量快照**（不是增量），Rust 侧已比对出增量再发过来，
+   * 所以这里一律按「追加」处理；只有 `reset` 时才先清空。
+   */
   chunk: string;
+  /** 服务端换了窗口（快照不再包含已有内容）→ 先清空缓冲区再追加 */
+  reset: boolean;
 }
 
 export interface LogStatusEvent {
   sessionId: string;
   state: "connected" | "disconnected" | "finished" | "error";
+  /** 服务端的原话（如 `数据格式错误`），有就展示出来，不再把错误吞掉 */
+  detail?: string;
 }

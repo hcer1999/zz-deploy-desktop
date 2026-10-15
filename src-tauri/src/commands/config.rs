@@ -21,10 +21,15 @@ pub struct AppConfig {
     pub log_retention_days: u64,
     /// 日志留存条数上限（spec §6.3，默认 500）
     pub log_retention_entries: usize,
-    /// 构建完成通知的触发条件："unfocused"（仅窗口失焦时，默认）| "always"（spec §6.2）
+    /// 构建完成通知的触发条件："always"（默认：不管窗口是否在前台都弹）
+    /// | "unfocused"（仅窗口失焦时）（spec §6.2）
     pub notify_mode: String,
     /// 侧边栏是否展开（仅 UI 布局偏好，但和其它设置一起放 config.json，重启后保持）
     pub sidebar_expanded: bool,
+    /// 上次在向导里用的部署类型（"auto" | "docker"）：下次打开向导预填
+    pub last_deploy_type: String,
+    /// 上次在向导里选的环境 id：下次打开向导预填。None = 还没选过（首次运行不预填）
+    pub last_env_id: Option<u32>,
 }
 
 impl Default for AppConfig {
@@ -37,8 +42,10 @@ impl Default for AppConfig {
             poll_interval_secs: 60,
             log_retention_days: 30,
             log_retention_entries: 500,
-            notify_mode: "unfocused".to_string(),
+            notify_mode: "always".to_string(),
             sidebar_expanded: false,
+            last_deploy_type: "auto".to_string(),
+            last_env_id: None,
         }
     }
 }
@@ -71,8 +78,24 @@ fn clamp_retention_entries(v: u64) -> usize {
 fn normalize_notify_mode(v: &str) -> String {
     match v {
         "always" | "unfocused" => v.to_string(),
-        _ => "unfocused".to_string(),
+        // 无效值回退到默认值
+        _ => "always".to_string(),
     }
+}
+
+fn normalize_deploy_type(v: &str) -> String {
+    match v {
+        "auto" | "docker" => v.to_string(),
+        _ => "auto".to_string(),
+    }
+}
+
+/// 环境 id 的合法集合（与前端 `api/deploy.ts` 的 ENVS 一致，spec §5.4 明确硬编码）。
+/// 不在集合里的值一律当「没选过」，而不是让向导拿着一个不存在的环境去预填。
+fn normalize_env_id(v: u64) -> Option<u32> {
+    const VALID: [u32; 9] = [1, 2, 4, 7, 8, 9, 11, 12, 14];
+    let v = u32::try_from(v).ok()?;
+    VALID.contains(&v).then_some(v)
 }
 
 pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
@@ -114,6 +137,12 @@ pub fn load<R: Runtime>(app: &AppHandle<R>) -> Result<AppConfig, AppError> {
     if let Some(v) = store.get("sidebarExpanded").and_then(|v| v.as_bool()) {
         cfg.sidebar_expanded = v;
     }
+    if let Some(v) = get_str("lastDeployType") {
+        cfg.last_deploy_type = normalize_deploy_type(&v);
+    }
+    if let Some(v) = store.get("lastEnvId").and_then(|v| v.as_u64()) {
+        cfg.last_env_id = normalize_env_id(v);
+    }
     Ok(cfg)
 }
 
@@ -153,6 +182,11 @@ pub fn save<R: Runtime>(app: &AppHandle<R>, cfg: &AppConfig) -> Result<(), AppEr
         "sidebarExpanded",
         serde_json::json!(cfg.sidebar_expanded),
     );
+    store.set(
+        "lastDeployType",
+        serde_json::json!(normalize_deploy_type(&cfg.last_deploy_type)),
+    );
+    store.set("lastEnvId", serde_json::json!(cfg.last_env_id));
     store
         .save()
         .map_err(|e| AppError::config(format!("写入配置失败：{e}")))?;
@@ -216,9 +250,16 @@ mod tests {
     }
 
     #[test]
-    fn invalid_notify_mode_falls_back_to_unfocused() {
-        assert_eq!(normalize_notify_mode("whenever"), "unfocused");
+    fn default_notify_mode_is_always() {
+        assert_eq!(AppConfig::default().notify_mode, "always");
+    }
+
+    #[test]
+    fn invalid_notify_mode_falls_back_to_default() {
+        assert_eq!(normalize_notify_mode("whenever"), "always");
         assert_eq!(normalize_notify_mode("always"), "always");
+        // 显式选了「仅失焦」要保留，不能被回退掉
+        assert_eq!(normalize_notify_mode("unfocused"), "unfocused");
     }
 
     #[test]
@@ -245,6 +286,8 @@ mod tests {
             log_retention_entries: 42,
             notify_mode: "always".to_string(),
             sidebar_expanded: true,
+            last_deploy_type: "docker".to_string(),
+            last_env_id: Some(4),
         };
         let text = serde_json::to_string(&original).unwrap();
         let back: AppConfig = serde_json::from_str(&text).unwrap();
@@ -255,5 +298,26 @@ mod tests {
         assert_eq!(back.log_retention_entries, 42);
         assert_eq!(back.notify_mode, "always");
         assert!(back.sidebar_expanded);
+        assert_eq!(back.last_deploy_type, "docker");
+        assert_eq!(back.last_env_id, Some(4));
+    }
+
+    #[test]
+    fn last_choice_defaults_to_nothing() {
+        // 首次运行不该预填环境：null 才代表"还没选过"
+        let cfg = AppConfig::default();
+        assert_eq!(cfg.last_deploy_type, "auto");
+        assert_eq!(cfg.last_env_id, None);
+    }
+
+    #[test]
+    fn only_known_env_ids_survive() {
+        assert_eq!(normalize_env_id(1), Some(1));
+        assert_eq!(normalize_env_id(14), Some(14));
+        // 服务端环境列表是硬编码的；配置被手改成不存在的 id 就当没选过
+        assert_eq!(normalize_env_id(3), None);
+        assert_eq!(normalize_env_id(999), None);
+        assert_eq!(normalize_deploy_type("docker"), "docker");
+        assert_eq!(normalize_deploy_type("whatever"), "auto");
     }
 }

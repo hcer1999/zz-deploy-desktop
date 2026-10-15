@@ -177,3 +177,83 @@ describe("FavoritesView 部署（分支可改）", () => {
     expect(w.findComponent(VueDraggable).props("forceFallback")).toBe(true);
   });
 });
+
+describe("FavoritesView 筛选", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  function filterBox(w: ReturnType<typeof mount>) {
+    return w.find('[data-test="fav-filter"]');
+  }
+
+  it("不筛选时不显示计数", async () => {
+    const w = await mountView();
+    expect(w.text()).not.toContain("匹配");
+    expect(w.text()).toContain("proj-AAA");
+    expect(w.text()).toContain("proj-BBB");
+  });
+
+  it("按项目名筛选，并显示匹配计数", async () => {
+    const w = await mountView();
+    await filterBox(w).setValue("BBB");
+
+    expect(w.text()).toContain("匹配 1 / 共 2");
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+  });
+
+  it("也能按环境与分支筛", async () => {
+    const w = await mountView();
+    await filterBox(w).setValue("正式");
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+
+    await filterBox(w).setValue("main");
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+  });
+
+  it("有收藏但无匹配时给空态提示", async () => {
+    const w = await mountView();
+    await filterBox(w).setValue("不存在的项目");
+    expect(w.text()).toContain("没有匹配的收藏");
+    expect(w.findComponent(VueDraggable).exists()).toBe(false);
+  });
+
+  it("筛选状态下禁用拖动排序，清空后恢复", async () => {
+    const w = await mountView();
+    expect(w.findComponent(VueDraggable).props("disabled")).toBe(false);
+
+    await filterBox(w).setValue("AAA");
+    expect(w.findComponent(VueDraggable).props("disabled")).toBe(true);
+
+    await filterBox(w).setValue("");
+    expect(w.findComponent(VueDraggable).props("disabled")).toBe(false);
+    expect(w.text()).toContain("proj-BBB");
+  });
+
+  // 拖动组件靠 emit('update:modelValue') 写回顺序。本轮 v-model 从 store 数组换成了
+  // computed（为了支持筛选），这两条盯住新写回通道：不筛选时写进 store，筛选时挡住。
+  it("不筛选时拖动写回会落到 store（v-model 改 computed 后仍生效）", async () => {
+    const w = await mountView();
+    const store = useFavoritesStore();
+
+    w.findComponent(VueDraggable).vm.$emit("update:modelValue", [store.items[1], store.items[0]]);
+    await flushPromises();
+
+    expect(store.items.map((f) => f.id)).toEqual(["2", "1"]);
+  });
+
+  it("筛选时即使收到拖动写回也不改 store（setter 里的双保险）", async () => {
+    const w = await mountView();
+    await filterBox(w).setValue("AAA");
+    const store = useFavoritesStore();
+
+    w.findComponent(VueDraggable).vm.$emit("update:modelValue", []);
+    await flushPromises();
+
+    expect(store.items.map((f) => f.id)).toEqual(["1", "2"]);
+  });
+});

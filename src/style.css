@@ -36,6 +36,11 @@
   --deploy-text-muted: oklch(0.52 0.012 260);
   --deploy-accent: oklch(0.55 0.2 265);
   --deploy-accent-fg: oklch(0.99 0 0);
+  /*
+   * 品牌色：与应用强调色（--deploy-accent，靛蓝）是两回事——它是品牌资产的固定色，
+   * 由设计给定（logo 的青底就是这个值），**不随浅深主题变化**，也别拿它当语义色用。
+   */
+  --deploy-brand: #00adc3;
   --deploy-success: oklch(0.55 0.16 150);
   --deploy-warning: oklch(0.62 0.14 70);
   --deploy-danger: oklch(0.55 0.21 25);
@@ -133,6 +138,7 @@
   --color-surface-2: var(--deploy-surface-2);
   --color-text: var(--deploy-text);
   --color-text-muted: var(--deploy-text-muted);
+  --color-brand: var(--deploy-brand);
   --color-success: var(--deploy-success);
   --color-warning: var(--deploy-warning);
   --color-danger: var(--deploy-danger);
@@ -161,4 +167,23 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* ============================================================
+ * 欢迎页（启动遮罩）
+ * ============================================================
+ * 不定进度条：一条主题色光条来回滑动。Tailwind 没有现成的 indeterminate
+ * 动画，keyframes 放这里（全局）比在组件里塞 scoped style 更好找。
+ */
+@keyframes deploy-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.animate-indeterminate {
+  animation: deploy-indeterminate 1.4s ease-in-out infinite;
 }

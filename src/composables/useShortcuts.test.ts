@@ -40,12 +40,16 @@ describe("handleKeydown", () => {
     expect(tabs.activeTab?.kind).toBe("settings");
   });
 
-  it("Cmd+1..5 按固定顺序切换标签", () => {
+  it("Cmd+1..7 按固定顺序切换标签（2=批量部署，7=关于）", () => {
     const tabs = useTabsStore();
-    handleKeydown(key("3"), tabs);
+    handleKeydown(key("2"), tabs);
+    expect(tabs.activeTab?.kind).toBe("batch");
+    handleKeydown(key("4"), tabs);
     expect(tabs.activeTab?.kind).toBe("list");
-    handleKeydown(key("5"), tabs);
+    handleKeydown(key("6"), tabs);
     expect(tabs.activeTab?.kind).toBe("settings");
+    handleKeydown(key("7"), tabs);
+    expect(tabs.activeTab?.kind).toBe("about");
   });
 
   it("Cmd+W 关闭当前标签", () => {
@@ -82,9 +86,9 @@ describe("handleKeydown", () => {
     expect(tabs.activeTab?.kind).toBe("settings");
   });
 
-  it("Cmd+6 等越界数字不处理", () => {
+  it("Cmd+8 等越界数字不处理", () => {
     const tabs = useTabsStore();
-    expect(handleKeydown(key("6"), tabs)).toBe(false);
+    expect(handleKeydown(key("8"), tabs)).toBe(false);
     expect(tabs.tabs).toHaveLength(0);
   });
 });
