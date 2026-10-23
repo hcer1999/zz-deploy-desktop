@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "至真部署",
+  "productName": "ZhizhenDeploy",
   "version": "0.1.1",
   "identifier": "com.zhizhengroup.deploy",
   "build": {
