@@ -15,6 +15,13 @@ export interface HistoryOverview {
   totalSize: number;
 }
 
+export interface HistoryTail {
+  /** 原始日志正文（含 ANSI），已从最后一行的开头对齐 */
+  text: string;
+  /** 文件比请求的 max_bytes 大，text 只是末尾一段 */
+  truncated: boolean;
+}
+
 export function listHistory(): Promise<HistoryOverview> {
   return call<HistoryOverview>("history_list");
 }
@@ -22,6 +29,20 @@ export function listHistory(): Promise<HistoryOverview> {
 /** 返回原始日志正文（含 ANSI 转义码），显示前需要过 stripAnsi */
 export function readHistory(deployType: string, taskId: number): Promise<string | null> {
   return call<string | null>("history_read", { deployType, taskId });
+}
+
+/**
+ * 只读日志末尾的一段（预览用）。
+ *
+ * 大日志整段读进来会在前端同步解析几秒；预览只需要最后几千行，
+ * 默认最多读 2MB。导出等需要全文的场景仍然用 readHistory。
+ */
+export function readHistoryTail(
+  deployType: string,
+  taskId: number,
+  maxBytes = 2 * 1024 * 1024,
+): Promise<HistoryTail | null> {
+  return call<HistoryTail | null>("history_read_tail", { deployType, taskId, maxBytes });
 }
 
 export function deleteHistory(deployType: string, taskId: number): Promise<void> {

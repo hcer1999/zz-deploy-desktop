@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 
-vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.0") }));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.1") }));
 
 import WelcomeView from "./WelcomeView.vue";
 
@@ -23,7 +23,7 @@ describe("WelcomeView", () => {
   it("显示运行时版本号（拿不到时就不显示，不报错）", async () => {
     const w = mount(WelcomeView);
     await flushPromises();
-    expect(w.text()).toContain("v0.1.0");
+    expect(w.text()).toContain("v0.1.1");
   });
 
   it("有加载中的进度条与状态文案", () => {

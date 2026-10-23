@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 describe("useAppVersion", () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.doMock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.0") }));
+    vi.doMock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.1") }));
   });
   afterEach(() => vi.doUnmock("@tauri-apps/api/app"));
 
@@ -14,7 +14,7 @@ describe("useAppVersion", () => {
     expect(a).toBe(b);
     await Promise.resolve();
     await Promise.resolve();
-    expect(a.value).toBe("0.1.0");
+    expect(a.value).toBe("0.1.1");
   });
 
   it("拿不到版本时保持空串（浏览器预览不炸）", async () => {

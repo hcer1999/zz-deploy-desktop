@@ -40,7 +40,7 @@
 想确认**文件本身**有没有传坏（与签名无关），可以校验 dmg 完整性：
 
 ```bash
-hdiutil verify ~/Downloads/至真部署_0.1.0_aarch64.dmg
+hdiutil verify ~/Downloads/至真部署_0.1.1_aarch64.dmg
 ```
 
 ## 让同事完全看不到提示的两个办法
@@ -48,7 +48,7 @@ hdiutil verify ~/Downloads/至真部署_0.1.0_aarch64.dmg
 1. **内网 curl 下载**：`curl` 不像浏览器 / AirDrop / 网盘那样给文件打隔离属性，双击就直接开：
 
    ```bash
-   curl -O https://<内网地址>/至真部署_0.1.0_aarch64.dmg
+   curl -O https://<内网地址>/至真部署_0.1.1_aarch64.dmg
    ```
 
 2. **买 Apple Developer（¥688/年）做 Developer ID 签名 + 公证**：配置已经就位，

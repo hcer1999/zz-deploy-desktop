@@ -214,7 +214,7 @@ function copyAll(): void {
           STATE_CLASS[session?.state ?? 'connecting'],
         ]"
       >
-        {{ STATE_TEXT[session?.state ?? "connecting"] }}
+        {{ session?.ingesting ? "载入中…" : STATE_TEXT[session?.state ?? "connecting"] }}
       </span>
       <!-- 服务端拒绝时把它的原话显示出来（例：“数据格式错误”），不再静默失败 -->
       <span
@@ -291,7 +291,7 @@ function copyAll(): void {
         :key="l.id"
         :data-line="index"
         :class="[
-          'whitespace-pre-wrap break-all rounded-sm',
+          'log-line whitespace-pre-wrap break-all rounded-sm',
           l.updates > 1 ? 'opacity-80' : '',
           index === currentLine ? 'bg-white/5' : '',
         ]"

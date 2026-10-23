@@ -29,3 +29,10 @@ npm-debug.log*
 
 # 测试覆盖率
 coverage/
+
+# updater 签名私钥与本地生成的发布清单（私钥绝不能进仓库）
+*.key
+/.tauri/
+/latest.json
+# 本地发版素材（安装包 / latest.json），上传 Release 用，不进仓库
+/release-assets/

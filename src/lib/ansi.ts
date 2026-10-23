@@ -14,6 +14,8 @@ export interface LogBuffer {
   progressIndex: Map<string, number>;
   maxLines: number;
   nextId: number;
+  /** 因超过 maxLines 从头部丢弃的行数（历史回看据此提示“已省略前 N 行”） */
+  dropped: number;
 }
 
 const DEFAULT_MAX_LINES = 5000;
@@ -33,6 +35,7 @@ export function createLogBuffer(opts?: { maxLines?: number }): LogBuffer {
     progressIndex: new Map(),
     maxLines: opts?.maxLines ?? DEFAULT_MAX_LINES,
     nextId: 1,
+    dropped: 0,
   };
 }
 
@@ -193,6 +196,7 @@ export function reset(buf: LogBuffer): void {
   buf.lines.length = 0;
   buf.pending = "";
   buf.progressIndex.clear();
+  buf.dropped = 0;
 }
 
 /**
@@ -225,16 +229,40 @@ function pushLine(buf: LogBuffer, line: string): void {
 }
 
 /**
- * 超出上限时从头部丢弃，并重建进度行索引。
+ * 超出上限时从头部丢弃，并维护进度行索引。
  *
- * 必须重建索引：被丢弃的进度行如果还留在 map 里，
+ * 必须保持索引正确：被丢弃的进度行如果还留在 map 里，
  * 下次同名进度会去找一个已经不存在（或被别的行占用）的下标，
  * 导致覆盖到错误的行。
+ *
+ * **批量重建**：早期实现每多一行就 `splice` 一次并 `forEach` 整个窗口，
+ * 大日志（几十万行）下是 O(行数 × maxLines) 的平方级开销——实测 10MB 日志
+ * 单这一项就要数秒，界面直接卡死。现在：
+ * - 每次只裁掉真实超出的行数（窗口严格不超过 maxLines）
+ * - 小批裁剪只把索引整体左移（O(进度行数)），攒够一批再全量重建
  */
 function trimIfNeeded(buf: LogBuffer): void {
-  if (buf.lines.length <= buf.maxLines) return;
   const overflow = buf.lines.length - buf.maxLines;
+  if (overflow <= 0) return;
+
   buf.lines.splice(0, overflow);
+  buf.dropped += overflow;
+
+  const batch = Math.max(1, Math.min(1024, Math.floor(buf.maxLines / 4)));
+  if (overflow >= batch) {
+    rebuildProgressIndex(buf);
+    return;
+  }
+
+  // 只丢了几行：把索引整体左移，比重建整个 map 便宜得多
+  for (const [key, idx] of buf.progressIndex) {
+    const next = idx - overflow;
+    if (next < 0) buf.progressIndex.delete(key);
+    else buf.progressIndex.set(key, next);
+  }
+}
+
+function rebuildProgressIndex(buf: LogBuffer): void {
   buf.progressIndex.clear();
   buf.lines.forEach((l, i) => {
     const m = l.text.match(PROGRESS_RE);

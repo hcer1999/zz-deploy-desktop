@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 
-vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.0") }));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.1") }));
 
 import HomeView from "./HomeView.vue";
 import { useTabsStore } from "@/stores/tabs";
@@ -25,7 +25,7 @@ describe("HomeView（没打开标签时的首页/启动器）", () => {
     expect(w.find("h1").text()).toBe("至真部署");
     expect(w.find("h1").classes()).toContain("text-brand");
     expect(w.find("svg").exists()).toBe(true); // BrandLogo
-    expect(w.text()).toContain("v0.1.0");
+    expect(w.text()).toContain("v0.1.1");
   });
 
   it("六个常用入口都在，且各有说明", async () => {

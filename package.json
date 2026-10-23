@@ -1,11 +1,12 @@
 {
   "name": "zz-deploy-desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "build:release": "tauri build --config src-tauri/tauri.release.conf.json",
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
@@ -17,7 +18,9 @@
     "@tauri-apps/plugin-dialog": "^2.8.2",
     "@tauri-apps/plugin-notification": "^2.6.0",
     "@tauri-apps/plugin-os": "^2.4.0",
+    "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.5.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
     "@vueuse/core": "^15.0.0",
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",

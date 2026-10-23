@@ -4,7 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useHistoryStore } from "@/stores/history";
 import { useTabsStore } from "@/stores/tabs";
 import { setOpenLog } from "@/stores/tabPayload";
-import { normalizeLogText, normalizeToLines } from "@/lib/ansi";
+import { normalizeToLinesAsync, normalizeToTextAsync } from "@/lib/logLoad";
 import { highlightLineCached } from "@/lib/logHighlight";
 import { toUserMessage } from "@/api/http";
 import { exportHistory } from "@/api/history";
@@ -17,17 +17,19 @@ const tabs = useTabsStore();
 
 const search = ref("");
 const openKey = ref("");
-const openText = ref("");
-/**
- * 回看也按行渲染并做同样的语法高亮。
- * 关键是走 `normalizeToLines`（与实时显示同一套 ANSI/重画/进度合并规则），
- * 直接按 "\n" 切会把进度条的几百帧焊成一行。
- */
-const openLines = computed(() => (openText.value ? normalizeToLines(openText.value) : []));
+const openLines = ref<string[]>([]);
+/** 文件比预览读取上限大（更早的内容没有读进来） */
+const openTruncated = ref(false);
+/** 解析后因超过 5000 行被丢弃的行数 */
+const openOmitted = ref(0);
 const openLoading = ref(false);
+const openProgress = ref(0);
+/** 当前展开请求的令牌：快速切换条目时丢弃旧请求的结果 */
+let openToken = 0;
 const flash = ref("");
 const clearing = ref(false);
 const pendingClear = ref(false);
+const exporting = ref(false);
 
 onMounted(() => void history.load());
 
@@ -64,17 +66,41 @@ async function toggle(e: { deployType: "auto" | "docker"; taskId: number }): Pro
     openKey.value = "";
     return;
   }
+
+  const token = ++openToken;
   openKey.value = k;
-  openText.value = "";
+  openLines.value = [];
+  openTruncated.value = false;
+  openOmitted.value = 0;
+  openProgress.value = 0;
   openLoading.value = true;
   try {
-    // 留存的是原始内容，渲染前剥离 ANSI（与实时日志同一套逻辑）
-    const raw = await history.readOne(e.deployType, e.taskId);
-    openText.value = raw === null ? "（日志文件已不存在）" : normalizeLogText(raw);
+    // 只读末尾一段：几十 MB 的日志整段读进来再解析会占住主线程（点一下卡死）。
+    // 预览本来也只展示最后 5000 行，完整内容走「导出」。
+    const tail = await history.readTail(e.deployType, e.taskId);
+    if (token !== openToken) return;
+    if (tail === null) {
+      openLines.value = ["（日志文件已不存在）"];
+      return;
+    }
+
+    openTruncated.value = tail.truncated;
+    // 分片解析 + 每片让出主线程：期间界面仍能滚动、点击、显示进度
+    const result = await normalizeToLinesAsync(tail.text, {
+      maxLines: 5000,
+      onProgress: (done, total) => {
+        if (token === openToken) openProgress.value = Math.round((done / Math.max(1, total)) * 100);
+      },
+      cancelled: () => token !== openToken,
+    });
+    if (token !== openToken) return;
+
+    openLines.value = result.lines;
+    openOmitted.value = result.omitted;
   } catch (err) {
-    openText.value = toUserMessage(err);
+    if (token === openToken) openLines.value = [toUserMessage(err)];
   } finally {
-    openLoading.value = false;
+    if (token === openToken) openLoading.value = false;
   }
 }
 
@@ -84,6 +110,8 @@ async function exportOne(e: {
   taskId: number;
   projectName: string;
 }): Promise<void> {
+  if (exporting.value) return;
+  exporting.value = true;
   try {
     const raw = await history.readOne(e.deployType, e.taskId);
     if (raw === null) {
@@ -95,10 +123,16 @@ async function exportOne(e: {
       filters: [{ name: "日志文件", extensions: ["log", "txt"] }],
     });
     if (!dest) return;
-    await exportHistory(dest, normalizeLogText(raw));
+
+    showFlash("正在整理日志…");
+    // 导出需要完整内容，同样分片处理，避免大文件把界面卡住
+    const content = await normalizeToTextAsync(raw);
+    await exportHistory(dest, content);
     showFlash("已导出");
   } catch (err) {
     showFlash(toUserMessage(err));
+  } finally {
+    exporting.value = false;
   }
 }
 
@@ -194,9 +228,10 @@ async function doClear(): Promise<void> {
             variant="outline"
             size="sm"
             class="h-6 px-2 text-[11px]"
+            :disabled="exporting"
             @click="exportOne(e)"
           >
-            导出
+            {{ exporting ? "整理中…" : "导出" }}
           </Button>
           <Button
             variant="outline"
@@ -212,9 +247,24 @@ async function doClear(): Promise<void> {
           v-if="openKey === keyOf(e)"
           class="border-t border-border bg-[#0b0d12] text-[#d4d4d4] px-3 py-2 max-h-[420px] overflow-auto font-mono text-[12px] leading-relaxed whitespace-pre-wrap break-all"
         >
-          <span v-if="openLoading" class="text-white/40">读取中…</span>
+          <span v-if="openLoading" class="text-white/40">
+            读取中…{{ openProgress ? ` ${openProgress}%` : "" }}
+          </span>
           <template v-else>
-            <div v-for="(line, i) in openLines" :key="i" class="whitespace-pre-wrap break-all">
+            <p
+              v-if="openTruncated || openOmitted"
+              class="mb-2 rounded-sm bg-amber-400/10 px-2 py-1 text-[11px] text-amber-300/90"
+            >
+              日志较大，仅显示最后 {{ openLines.length }} 行<template v-if="openOmitted"
+                >（已省略前 {{ openOmitted }} 行）</template
+              ><template v-if="openTruncated">（更早的内容未读取）</template
+              >；完整内容请用「导出」。
+            </p>
+            <div
+              v-for="(line, i) in openLines"
+              :key="i"
+              class="log-line whitespace-pre-wrap break-all"
+            >
               <span v-for="(seg, j) in highlightLineCached(line)" :key="j" :class="seg.cls">{{
                 seg.text
               }}</span>

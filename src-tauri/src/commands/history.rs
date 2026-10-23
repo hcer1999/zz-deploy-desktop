@@ -4,7 +4,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Runtime, State};
 
 use crate::error::AppError;
-use crate::logs::store::{HistoryEntry, LogStore, Retention};
+use crate::logs::store::{HistoryEntry, LogStore, Retention, TailLog};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +28,21 @@ pub async fn history_read(
     task_id: i64,
 ) -> Result<Option<String>, AppError> {
     store.read(&deploy_type, task_id)
+}
+
+/// 预览用的「只读末尾」：避免几十 MB 日志整段穿过 IPC、再同步解析卡死界面。
+#[tauri::command]
+pub async fn history_read_tail(
+    store: State<'_, LogStore>,
+    deploy_type: String,
+    task_id: i64,
+    max_bytes: Option<u64>,
+) -> Result<Option<TailLog>, AppError> {
+    // 下限保证还能看到有意义的末尾；上限防止前端传个天文数字绕过保护
+    let max_bytes = max_bytes
+        .unwrap_or(2 * 1024 * 1024)
+        .clamp(64 * 1024, 16 * 1024 * 1024);
+    store.read_tail(&deploy_type, task_id, max_bytes)
 }
 
 #[tauri::command]

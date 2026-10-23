@@ -25,7 +25,7 @@ npm run tauri build        # 当前平台
 
 | 接收方 | 需要的包 | 现在能出吗 |
 |---|---|---|
-| Apple Silicon Mac（M 系列） | `至真部署_0.1.0_aarch64.dmg` | ✅ 已产出 |
+| Apple Silicon Mac（M 系列） | `至真部署_0.1.1_aarch64.dmg` | ✅ 已产出 |
 | Intel Mac | 通用包（universal） | ⚠️ 需要先 `rustup target add x86_64-apple-darwin`，再 `npm run tauri build -- --target universal-apple-darwin` |
 | Windows | `.msi` / `.exe` | ❌ **必须在 Windows 机器上构建**（Tauri 不支持交叉编译打包） |
 | Linux | `.deb` / `.AppImage` | ❌ **必须在 Linux 机器上构建** |
@@ -35,7 +35,7 @@ Intel Mac 装 arm64 包会直接报无法打开（Rosetta 是 x86→arm 方向�
 
 ## 3. 发给同事的话术（复制粘贴）
 
-> 装这个：至真部署_0.1.0_aarch64.dmg（Apple 芯片 Mac）／…（Intel Mac 用 universal 包）
+> 装这个：至真部署_0.1.1_aarch64.dmg（Apple 芯片 Mac）／…（Intel Mac 用 universal 包）
 > 打开 dmg → 把「至真部署」拖进「应用程序」→ 首次打开会被拦（未签名），
 > 到「系统设置 → 隐私与安全性」点「仍要打开」；
 > 若提示「已损坏」，在终端执行：`xattr -dr com.apple.quarantine "/Applications/至真部署.app"`
@@ -61,14 +61,19 @@ Intel Mac 装 arm64 包会直接报无法打开（Rosetta 是 x86→arm 方向�
 
 1. 改版本号：`package.json`、`src-tauri/tauri.conf.json`（打包用后者）、`src-tauri/Cargo.toml`，
    以及 `src-tauri/Cargo.lock` 里的 `zz-deploy-desktop` 条目（不改的话下次 `cargo` 会改回来）。
-2. `npm run tauri build`。
-3. 直接把新 `.dmg` 发出去，覆盖安装即可（拖进「应用程序」时选择替换）。
-   **配置、收藏、历史日志、凭据都在应用数据目录里，不受影响**——前提是 `identifier`
-   （`com.zhizhengroup.deploy`）不要改。
-4. 版本号建议带进文件名，方便同事区分：`至真部署_0.2.0_aarch64.dmg`。
+2. 带 updater 签名构建（源码构建不需要密钥；发版必须带）：
+   ```bash
+   export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/zz-deploy-desktop.key"
+   npm run build:release
+   ```
+3. 生成 `latest.json`（把 `.sig` 拼成清单，详见 [`updates.md`](updates.md)），
+   连同 `.app.tar.gz` / `.exe` / `.AppImage` 和 `.sig` 一起上传到 GitHub Release（tag `v<版本号>`）。
+4. 把 `.dmg` 发给**首次安装**的同事；已经装过的客户端会在下次启动时提示
+   「发现新版本 → 立即更新」，下载、安装、重启都在客户端内完成。
+5. 版本号建议带进文件名，方便同事区分：`至真部署_0.2.0_aarch64.dmg`。
 
-目前**没有自动更新**：每次都要手动发。要省事可加 `tauri-plugin-updater` +
-一个内网静态目录（放 `latest.json` 与安装包），应用启动时自检并提示升级。
+配置、收藏、历史日志、凭据都在应用数据目录里，更新不会清掉——前提是 `identifier`
+（`com.zhizhengroup.deploy`）不要改。
 
 ## 6. 想三端自动出包（CI）
 
@@ -100,9 +105,17 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # updater 签名：与 src-tauri/tauri.conf.json 的 pubkey 配对
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          args: --target ${{ matrix.target }}
+          tagName: v__VERSION__
+          releaseName: 至真部署 v__VERSION__
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.release.conf.json
 ```
+
+`tauri-action` 会生成 `latest.json` 并上传到同一个 Release；没有 secret 时构建会失败，
+所以第一次接入 CI 要先把私钥内容存进仓库 secret（可保留文件路径版本在本机用）。
 
 内网 GitLab 同理，用 shell runner（macOS/Windows/Linux 各一）跑同样的命令。
 
@@ -111,7 +124,7 @@ jobs:
 | 缺口 | 影响 | 解法 |
 |---|---|---|
 | 无代码签名 / 公证 | 每次首次安装都要手动放行；有 Apple Developer 账号（¥688/年）可去掉 | 配置 `signingIdentity` + `notarytool` |
-| 无自动更新 | 每次手动发包 | `tauri-plugin-updater` + 内网更新源 |
+| 无自动重启 | 新版本安装完成后要用户点「立即重启」（避免打断正在跑的构建） | 产品选择，不需要补 |
 | 无单实例限制 | 重复双击会出现多个窗口/托盘图标 | `tauri-plugin-single-instance` |
 | 设置页「启动时自动运行」未实现 | 想让同事开机自启做不到 | `tauri-plugin-autostart`（spec §5.6 已列） |
 | 仅 arm64 macOS 产物 | Intel Mac 无法使用 | 通用包或在 Intel 机器上构建 |

@@ -1,9 +1,9 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
 import * as api from "@/api/history";
-import type { HistoryEntry } from "@/api/history";
+import type { HistoryEntry, HistoryTail } from "@/api/history";
 
-export type { HistoryEntry };
+export type { HistoryEntry, HistoryTail };
 
 export const useHistoryStore = defineStore("history", () => {
   const entries = ref<HistoryEntry[]>([]);
@@ -26,6 +26,15 @@ export const useHistoryStore = defineStore("history", () => {
     return api.readHistory(deployType, taskId);
   }
 
+  /** 读取单条末尾一段（预览用，避免大日志整段穿过 IPC） */
+  function readTail(
+    deployType: string,
+    taskId: number,
+    maxBytes?: number,
+  ): Promise<HistoryTail | null> {
+    return api.readHistoryTail(deployType, taskId, maxBytes);
+  }
+
   async function remove(deployType: string, taskId: number): Promise<void> {
     await api.deleteHistory(deployType, taskId);
     await load();
@@ -44,7 +53,7 @@ export const useHistoryStore = defineStore("history", () => {
     return removed;
   }
 
-  return { entries, totalSize, loading, load, readOne, remove, clear, applyRetention };
+  return { entries, totalSize, loading, load, readOne, readTail, remove, clear, applyRetention };
 });
 
 // Pinia 的 HMR 支持。

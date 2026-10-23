@@ -187,3 +187,15 @@ body {
 .animate-indeterminate {
   animation: deploy-indeterminate 1.4s ease-in-out infinite;
 }
+
+/*
+ * 日志行渲染优化。
+ *
+ * 日志窗口最多保留 5000 行，一次性把它们全部布局/绘制在几十 MB 日志下仍然很贵。
+ * content-visibility: auto 让浏览器跳过视口外的行；contain-intrinsic-size 提供
+ * 估算高度，避免滚动条高度剧烈跳动。只影响渲染，不改变查找/复制逻辑。
+ */
+.log-line {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1.5em;
+}

@@ -1,6 +1,6 @@
 [package]
 name = "zz-deploy-desktop"
-version = "0.1.0"
+version = "0.1.1"
 description = "至真部署 - ITSM 部署桌面客户端"
 authors = ["zhizhen-devops"]
 edition = "2024"
@@ -36,6 +36,8 @@ futures-util = "0.3"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 
 [dev-dependencies]
 wiremock = "0.6"

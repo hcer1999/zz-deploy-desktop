@@ -4,7 +4,7 @@ import { createPinia, setActivePinia, type Pinia } from "pinia";
 
 vi.mock("@/api/config", () => ({ getConfig: vi.fn(), setConfig: vi.fn() }));
 vi.mock("@/api/auth", () => ({ getAuthStatus: vi.fn(), setBaseUrl: vi.fn() }));
-vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.0") }));
+vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn(async () => "0.1.1") }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({ setTitle: vi.fn(async () => {}) }),
 }));
@@ -95,6 +95,6 @@ describe("TitleBar", () => {
     setActivePinia(pinia);
     const w = mount(TitleBar, { global: { plugins: [pinia] } });
     await flushPromises();
-    expect(w.text()).toContain("至真部署-桌面版 Ver0.1.0");
+    expect(w.text()).toContain("至真部署-桌面版 Ver0.1.1");
   });
 });

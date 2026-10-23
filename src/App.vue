@@ -2,6 +2,7 @@
 import { onMounted, ref } from "vue";
 import { listen } from "@tauri-apps/api/event";
 import TitleBar from "./components/layout/TitleBar.vue";
+import UpdateBanner from "./components/layout/UpdateBanner.vue";
 import SideNav from "./components/layout/SideNav.vue";
 import TabBar from "./components/layout/TabBar.vue";
 import TabHost from "./components/TabHost.vue";
@@ -14,6 +15,7 @@ import { useSettingsStore } from "./stores/settings";
 import { useThemeStore } from "./stores/theme";
 import { useFavoritesStore } from "./stores/favorites";
 import { useBatchFavoritesStore } from "./stores/batchFavorites";
+import { useUpdateStore } from "./stores/update";
 import { useBuildNotifications } from "./composables/useBuildNotifications";
 import { registerLogEvents } from "./composables/useLogEvents";
 import { useShortcuts } from "./composables/useShortcuts";
@@ -37,6 +39,7 @@ const splashFading = ref(false);
 const authSettled = ref(false);
 const settings = useSettingsStore();
 const theme = useThemeStore();
+const update = useUpdateStore();
 // 构建完成通知：本 composable 会在内部完成"状态跃迁 diff"与"通知点击"的订阅
 const notify = useBuildNotifications();
 // 应用级快捷键（Cmd/Ctrl+N/R/W/1-5/,）
@@ -74,6 +77,7 @@ onMounted(async () => {
     await listen<string>("tray://command", (e) => {
       if (e.payload === "new_deploy") tabs.open({ kind: "wizard" });
       else if (e.payload === "task_list") tabs.open({ kind: "list" });
+      else if (e.payload === "check_update") void update.check();
     });
   });
 
@@ -91,6 +95,12 @@ onMounted(async () => {
     const batchFavorites = useBatchFavoritesStore();
     await batchFavorites.load();
     batchFavorites.refreshEnvNames(ENVS);
+  });
+
+  // 更新检查放到后台跑：内网不通 / GitHub 不可达都不应该影响启动，
+  // 也不该让欢迎页等着一个网络请求。
+  await step("检查更新", async () => {
+    void update.check();
   });
 
   // 等"到底登录没有"有结论再撤遮罩（超时也会撤，不能让欢迎页一直挂着）
@@ -118,6 +128,7 @@ onMounted(async () => {
 <template>
   <div class="relative h-full flex flex-col bg-bg text-text">
     <TitleBar />
+    <UpdateBanner />
 
     <!--
       启动遮罩：盖住登录页/主界面的"未定型"阶段。

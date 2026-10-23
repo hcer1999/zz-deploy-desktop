@@ -2,6 +2,8 @@
 import { computed, onMounted, ref } from "vue";
 import { arch, platform, version as osVersion } from "@tauri-apps/plugin-os";
 import { useAppVersion } from "@/composables/useAppVersion";
+import { useUpdateStore } from "@/stores/update";
+import { Button } from "@/components/ui/button";
 import { CHANGELOG } from "@/data/changelog";
 // 品牌 logo 的**原图**（assets/app-icon.png，1024×1024）：关于页要展示它本身，
 // 而不是我们按它重绘的矢量标 —— 一个是品牌资产原件，一个是界面里用的标。
@@ -14,8 +16,26 @@ import appIconUrl from "../../assets/app-icon.png";
  * 注入（`__BUILD_TIME__`），不能用运行时时间——那只是"你什么时候打开的应用"。
  */
 const version = useAppVersion();
+const update = useUpdateStore();
 const platformLabel = ref("");
 const buildTime = __BUILD_TIME__;
+
+/** 关于页的更新状态文案（与顶部提示条共用同一个 store，不重复请求） */
+const updateText = computed(() => {
+  if (update.installed) return "已安装，重启后生效";
+  if (update.installing) {
+    return update.phase === "installing"
+      ? "正在安装…"
+      : update.total > 0
+        ? `正在下载 ${update.progress}%`
+        : "正在下载…";
+  }
+  if (update.checking) return "检查中…";
+  if (update.error) return `更新失败：${update.error}`;
+  const info = update.info;
+  if (!info) return "";
+  return info.available ? `发现新版本 v${info.latestVersion}` : "已是最新版本";
+});
 
 const buildTimeText = computed(() => {
   const d = new Date(buildTime);
@@ -64,7 +84,39 @@ onMounted(() => {
           <dl class="mt-4 space-y-1 text-[11px]">
             <div class="flex gap-2">
               <dt class="w-16 shrink-0 text-text-muted">版本</dt>
-              <dd class="font-mono" data-test="about-version">v{{ version || "—" }}</dd>
+              <dd class="flex items-center gap-2 font-mono" data-test="about-version">
+                <span>v{{ version || "—" }}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  class="h-5 px-1.5 text-[10px]"
+                  data-test="about-check-update"
+                  :disabled="update.checking"
+                  @click="update.check()"
+                >
+                  检查更新
+                </Button>
+                <span v-if="updateText" class="font-sans text-text-muted">{{ updateText }}</span>
+                <Button
+                  v-if="update.installed"
+                  size="sm"
+                  class="h-5 px-1.5 text-[10px]"
+                  data-test="about-restart-update"
+                  @click="update.restart()"
+                >
+                  立即重启
+                </Button>
+                <Button
+                  v-else-if="update.info?.available"
+                  size="sm"
+                  class="h-5 px-1.5 text-[10px]"
+                  data-test="about-install-update"
+                  :disabled="update.installing"
+                  @click="update.install()"
+                >
+                  {{ update.installing ? "更新中…" : "立即更新" }}
+                </Button>
+              </dd>
             </div>
             <div class="flex gap-2">
               <dt class="w-16 shrink-0 text-text-muted">构建时间</dt>

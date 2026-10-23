@@ -92,6 +92,61 @@ fn snapshot_delta<'a>(known: &str, snapshot: &'a str) -> (&'a str, bool) {
     }
 }
 
+/// 单次 `log://data` 事件的目标大小。
+///
+/// 服务端一份快照可能是几十 MB（老任务的完整日志）。整段塞进一个事件，
+/// WebView 要在主线程一次性接住并解析，界面会直接卡住；拆成小块后，
+/// 每块都小到可以在一帧内处理完，前端还能在两块之间渲染。
+const EMIT_SLICE: usize = 64 * 1024;
+
+/// 按 UTF-8 字符边界切一刀（不能把中文/emoji 切成半个）
+fn split_utf8_at(s: &str, max: usize) -> (&str, &str) {
+    if s.len() <= max {
+        return (s, "");
+    }
+    let mut cut = max;
+    while cut > 0 && !s.is_char_boundary(cut) {
+        cut -= 1;
+    }
+    (&s[..cut], &s[cut..])
+}
+
+/// 把增量拆片后依次发事件；`reset` 只跟着第一片。
+fn emit_data<R: Runtime>(app: &AppHandle<R>, session_id: &str, chunk: &str, reset: bool) {
+    if chunk.is_empty() {
+        if reset {
+            let _ = app.emit(
+                "log://data",
+                LogData {
+                    session_id: session_id.to_string(),
+                    chunk: String::new(),
+                    reset: true,
+                },
+            );
+        }
+        return;
+    }
+
+    let mut rest = chunk;
+    let mut first = true;
+    loop {
+        let (piece, tail) = split_utf8_at(rest, EMIT_SLICE);
+        let _ = app.emit(
+            "log://data",
+            LogData {
+                session_id: session_id.to_string(),
+                chunk: piece.to_string(),
+                reset: reset && first,
+            },
+        );
+        first = false;
+        if tail.is_empty() {
+            break;
+        }
+        rest = tail;
+    }
+}
+
 /// 打开一条日志流。立即返回 session_id，数据通过 `log://data` 事件推送。
 ///
 /// 为什么用事件而不是 invoke 返回：日志是长连接推送，没有"返回"这一说。
@@ -173,14 +228,7 @@ pub async fn log_open<R: Runtime>(
                     let (chunk, reset) = snapshot_delta(ui_last, snapshot);
                     if !chunk.is_empty() || reset {
                         *new_this_attempt = true;
-                        let _ = app.emit(
-                            "log://data",
-                            LogData {
-                                session_id: sid.clone(),
-                                chunk: chunk.to_string(),
-                                reset,
-                            },
-                        );
+                        emit_data(&app, &sid, chunk, reset);
                     }
 
                     *file_last = snapshot.to_string();
@@ -301,7 +349,7 @@ pub async fn log_close<R: Runtime>(
 
 #[cfg(test)]
 mod tests {
-    use super::snapshot_delta;
+    use super::{snapshot_delta, split_utf8_at};
 
     /// 服务端每次推全量快照，落盘/推前端只能取增量。
     /// 没有这层，重复订阅（重试、重开标签）会把同一段日志写很多遍——
@@ -331,5 +379,22 @@ mod tests {
         let (chunk, reset) = snapshot_delta("old-a\nold-b\n", "new-a\nnew-b\n");
         assert_eq!(chunk, "new-a\nnew-b\n");
         assert!(reset);
+    }
+
+    #[test]
+    fn split_utf8_never_cuts_a_multibyte_char() {
+        // 每个汉字 3 字节，切点落在字符中间时必须回退到边界
+        let s = "中文日志内容";
+        let (a, b) = split_utf8_at(s, 4);
+        assert_eq!(a, "中");
+        assert_eq!(b, "文日志内容");
+        assert_eq!(format!("{a}{b}"), s);
+    }
+
+    #[test]
+    fn split_utf8_returns_whole_string_when_smaller() {
+        let (a, b) = split_utf8_at("abc", 10);
+        assert_eq!(a, "abc");
+        assert_eq!(b, "");
     }
 }

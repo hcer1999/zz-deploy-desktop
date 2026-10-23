@@ -185,6 +185,56 @@ impl LogStore {
         }
     }
 
+    /// 只读文件末尾的一段，供「历史日志展开预览」使用。
+    ///
+    /// 日志可能几十 MB，整段读进内存再经 IPC 送到 WebView，会在前端造成
+    /// 一次长时间的同步解析（实测 10MB 约数秒），表现就是点一下日志就卡死。
+    /// 预览只展示最后 5000 行，读末尾 `max_bytes` 就够了；返回的 `truncated`
+    /// 让界面能说明「已省略较早内容」。
+    pub fn read_tail(
+        &self,
+        deploy_type: &str,
+        task_id: i64,
+        max_bytes: u64,
+    ) -> Result<Option<TailLog>, AppError> {
+        use std::io::{Read, Seek, SeekFrom};
+
+        validate_deploy_type(deploy_type)?;
+        let path = self.file_path(deploy_type, task_id);
+        let mut f = match std::fs::File::open(&path) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(AppError::io(format!("读取日志失败：{e}"))),
+        };
+
+        let len = f
+            .metadata()
+            .map_err(|e| AppError::io(format!("读取日志大小失败：{e}")))?
+            .len();
+        let truncated = len > max_bytes;
+        if truncated {
+            f.seek(SeekFrom::Start(len - max_bytes))
+                .map_err(|e| AppError::io(format!("定位日志末尾失败：{e}")))?;
+        }
+
+        let mut buf = Vec::new();
+        f.read_to_end(&mut buf)
+            .map_err(|e| AppError::io(format!("读取日志失败：{e}")))?;
+
+        // 从文件中间开始时，第一行大概率是半行；丢掉它，避免显示半截内容。
+        // 跳过后缓冲区重新回到 UTF-8 字符边界，`from_utf8_lossy` 仅作保护。
+        let start = if truncated {
+            buf.iter().position(|&b| b == b'\n').map_or(0, |i| i + 1)
+        } else {
+            0
+        };
+
+        Ok(Some(TailLog {
+            text: String::from_utf8_lossy(&buf[start..]).into_owned(),
+            truncated,
+        }))
+    }
+
     /// 按开始时间倒序返回（最新的在前），size 以磁盘上的实际文件为准
     pub fn list(&self) -> Result<Vec<HistoryEntry>, AppError> {
         let mut v: Vec<HistoryEntry> = self.load_index().into_values().collect();
@@ -252,6 +302,14 @@ impl LogStore {
 /// 供测试与调用方拼路径用
 pub fn logs_root(app_data_dir: &Path) -> PathBuf {
     app_data_dir.join("logs")
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TailLog {
+    pub text: String,
+    /// 文件比 `max_bytes` 大，`text` 只是末尾一段
+    pub truncated: bool,
 }
 
 #[cfg(test)]
@@ -435,5 +493,32 @@ mod tests {
             h.join().unwrap();
         }
         assert_eq!(s.list().unwrap().len(), 8);
+    }
+
+    #[test]
+    fn read_tail_of_small_file_returns_everything() {
+        let dir = TempDir::new().unwrap();
+        let s = store(&dir);
+        s.append("auto", 1, "line1\nline2\n").unwrap();
+        let tail = s.read_tail("auto", 1, 1024).unwrap().unwrap();
+        assert_eq!(tail.text, "line1\nline2\n");
+        assert!(!tail.truncated);
+    }
+
+    #[test]
+    fn read_tail_skips_partial_first_line() {
+        let dir = TempDir::new().unwrap();
+        let s = store(&dir);
+        s.append("auto", 1, "aaaa\nbbbb\ncccc\n").unwrap();
+        // 从 6 字节开始读：会落到 "bbbb" 中间，必须丢掉半行
+        let tail = s.read_tail("auto", 1, 6).unwrap().unwrap();
+        assert!(tail.truncated);
+        assert_eq!(tail.text, "cccc\n");
+    }
+
+    #[test]
+    fn read_tail_missing_file_is_none() {
+        let dir = TempDir::new().unwrap();
+        assert!(store(&dir).read_tail("auto", 99, 1024).unwrap().is_none());
     }
 }

@@ -23,6 +23,9 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
+        // 应用内更新：updater 负责校验签名与替换安装包，process 负责重启
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir().expect("无法解析应用数据目录");
             std::fs::create_dir_all(&app_data_dir).ok();
@@ -98,6 +101,7 @@ pub fn run() {
             commands::log::log_close,
             commands::history::history_list,
             commands::history::history_read,
+            commands::history::history_read_tail,
             commands::history::history_delete,
             commands::history::history_clear,
             commands::history::history_apply_retention,

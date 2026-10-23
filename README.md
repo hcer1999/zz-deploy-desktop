@@ -8,7 +8,8 @@
 - **实时构建日志**：WebSocket 流式输出（服务端推全量快照，客户端只追加增量），docker 的进度行原地更新；**语法高亮**（失败/警告/成功/Step/进度/hash）、**查找与命中高亮**（⌘F）、`$<3>` 还原为换行；日志同时落盘留存
 - **收藏**：支持「仅项目」与「项目+分支」两种粒度，可按 项目 / 环境 / 分支 筛选，可拖动排序（筛选时禁用拖动），一键复用（部署时分支仍可改）
 - **任务列表**：上下线 / 回滚 / 重新构建（仅构建失败时） / 删除 / 查看日志，自动轮询
-- **历史日志**：列表、搜索、展开、导出、删除、按天数和条数保留
+- **历史日志**：列表、搜索、展开、导出、删除、按天数和条数保留；大日志只读末尾预览、分片解析，不再卡死界面
+- **应用内更新**：启动后台检查 / 关于页与托盘手动检查；发现新版本点「立即更新」即可在客户端内下载、校签、安装，重启生效，不需要用户再去下载新包
 - **首页（启动器）**：没打开标签时显示品牌头与六个常用入口，点卡片即进入
 - **关于页**：介绍、更新日志（`src/data/changelog.ts`，发版时在头部加一条）、logo 原图、版本号与构建时间
 - **品牌标**：`src/assets/reframe-draw-on.svg`（draw-on：先画方块与沙漏的描边再填色；资产自带青底 `#00ADC3`）
@@ -102,8 +103,12 @@ cargo run --example probe_log_ws -- <taskId> auto   # 打印日志 WebSocket 的
 ### 打包
 
 ```bash
-npm run tauri build                                   # 当前平台
+npm run tauri build                                   # 当前平台（不含 updater 产物，无需签名密钥）
 npm run tauri build -- --target universal-apple-darwin # macOS 通用包（需先 rustup target add x86_64-apple-darwin）
+
+# 发版（生成 .app.tar.gz / .exe / AppImage 的 .sig，供应用内更新使用）
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/zz-deploy-desktop.key"
+npm run build:release
 ```
 
 产物：
@@ -115,6 +120,7 @@ npm run tauri build -- --target universal-apple-darwin # macOS 通用包（需�
 | Linux | `src-tauri/target/release/bundle/appimage/*.AppImage`、`bundle/deb/*.deb` |
 
 **三端产物必须在各自平台上构建**，Tauri 不支持交叉编译打包。
+`build:release` 的签名密钥、`latest.json` 与发布流程见 [`docs/updates.md`](docs/updates.md)。
 
 ### 版本号
 
@@ -241,4 +247,5 @@ docs/               设计与实施文档（见下）
 | [`docs/superpowers/specs/2026-10-13-zz-deploy-desktop-design.md`](docs/superpowers/specs/2026-10-13-zz-deploy-desktop-design.md) | **设计真值**：架构、IPC 契约、界面、体验增强、存储、约束与取舍 |
 | `docs/superpowers/plans/*.md` | 各阶段实施计划与执行结果（Plan 1 → Plan 6） |
 | [`docs/install-unsigned.md`](docs/install-unsigned.md) | 未签名版本的安装放行与签名不变量 |
+| [`docs/updates.md`](docs/updates.md) | 应用内更新：签名密钥、release 构建、latest.json、平台行为与排查 |
 | [`docs/distribution.md`](docs/distribution.md) | 分发指南：产物、按平台选包、新版本怎么发、CI 矩阵示例 |
