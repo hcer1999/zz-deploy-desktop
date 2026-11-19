@@ -79,6 +79,7 @@ watch(
       <Button
         v-for="p in projects"
         :key="p.id"
+        :data-test="`pick-${p.id}`"
         :data-selected="selectedId === p.id"
         :variant="selectedId === p.id ? 'default' : 'secondary'"
         size="sm"

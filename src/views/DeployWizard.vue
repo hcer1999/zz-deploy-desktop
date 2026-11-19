@@ -10,6 +10,7 @@ import { useTasksStore } from "@/stores/tasks";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
+import ProjectGrid from "@/components/deploy/ProjectGrid.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -261,18 +262,12 @@ async function onSaveFavorite(): Promise<void> {
         </div>
       </div>
       <div v-if="projects.length === 0" class="text-xs text-text-muted">该环境下没有项目</div>
-      <div v-else class="flex flex-wrap gap-2 max-h-[240px] overflow-auto p-1">
-        <Button
-          v-for="p in filteredProjects"
-          :key="p.id"
-          :variant="selectedProject?.id === p.id ? 'default' : 'secondary'"
-          size="sm"
-          class="text-xs"
-          @click="pickProject(p)"
-        >
-          {{ p.name }}
-        </Button>
-      </div>
+      <ProjectGrid
+        v-else
+        :projects="filteredProjects"
+        :selected-id="selectedProject?.id ?? null"
+        @pick="pickProject"
+      />
     </section>
 
     <section v-if="selectedProject" class="space-y-2">

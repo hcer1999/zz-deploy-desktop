@@ -19,6 +19,7 @@ import type { BatchFavorite } from "@/api/batchFavorites";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
+import ProjectGrid from "@/components/deploy/ProjectGrid.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -537,23 +538,17 @@ onMounted(async () => {
 
       <section v-else-if="projects" class="space-y-2">
         <div class="flex items-center justify-between gap-3">
-          <Label>项目</Label>
+          <Label>项目（{{ filteredProjects.length }} / {{ projects.length }}）</Label>
           <Input v-model="projectSearch" placeholder="搜索项目…" class="w-56 h-8" />
         </div>
         <div v-if="projects.length === 0" class="text-xs text-text-muted">该环境下没有项目</div>
-        <div v-else class="flex flex-wrap gap-2 max-h-[200px] overflow-auto p-1">
-          <Button
-            v-for="p in filteredProjects"
-            :key="p.id"
-            :data-test="`pick-${p.id}`"
-            :variant="selectedProject?.id === p.id ? 'default' : 'secondary'"
-            size="sm"
-            class="text-xs"
-            @click="pickProject(p)"
-          >
-            {{ p.name }}
-          </Button>
-        </div>
+        <ProjectGrid
+          v-else
+          :projects="filteredProjects"
+          :selected-id="selectedProject?.id ?? null"
+          max-height-class="max-h-[200px]"
+          @pick="pickProject"
+        />
       </section>
 
       <!-- 选中项目后才出现：分支 / commit（都可选，不选就用默认最新） -->

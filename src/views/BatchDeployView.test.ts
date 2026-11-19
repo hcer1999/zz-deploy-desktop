@@ -162,6 +162,13 @@ describe("BatchDeployView 批量计划", () => {
     document.body.innerHTML = "";
   });
 
+  it("项目列表用 ProjectGrid 渲染，并显示项目计数", async () => {
+    const w = await mountView();
+    await pickEnv(w, "测试环境");
+    expect(w.find('[data-test="project-scroll"]').exists()).toBe(true);
+    expect(w.text()).toContain("项目（");
+  });
+
   it("选中项目加入计划：默认带上该项目的分支与最新 commit", async () => {
     const w = await mountView();
     await pickEnv(w, "测试环境");

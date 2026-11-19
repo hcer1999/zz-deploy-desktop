@@ -100,6 +100,12 @@ describe("DeployWizard 收藏粒度", () => {
     document.body.innerHTML = "";
   });
 
+  it("项目列表用 ProjectGrid 渲染（带滚动提示的公共组件）", async () => {
+    const w = await mountWizard();
+    expect(w.find('[data-test="project-scroll"]').exists()).toBe(true);
+    expect(w.text()).toContain("项目（");
+  });
+
   it("没选项目时没有收藏入口", async () => {
     const w = await mountWizard();
     expect(w.find('[data-test="fav-project"]').exists()).toBe(false);
