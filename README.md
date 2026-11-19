@@ -29,7 +29,7 @@
      （macOS 15 起「右键 → 打开」的旧技巧已失效）
    - 提示「**已损坏，无法打开**」→ 终端执行下面这行，之后双击即可：
      ```bash
-     xattr -dr com.apple.quarantine "/Applications/至真部署.app"
+     xattr -dr com.apple.quarantine "/Applications/ZhizhenDeploy.app"
      ```
 3. 用**你自己的** ITSM 账号登录；勾选「记住密码」后会话过期会自动重登
 
@@ -43,9 +43,9 @@
 ### Linux
 
 ```bash
-chmod +x 至真部署_*.AppImage && ./至真部署_*.AppImage
+chmod +x ZhizhenDeploy_*.AppImage && ./ZhizhenDeploy_*.AppImage
 # 或
-sudo dpkg -i 至真部署_*.deb
+sudo dpkg -i ZhizhenDeploy_*.deb
 ```
 
 ### 使用前提与数据位置
@@ -101,27 +101,152 @@ cargo run --example capture_fixtures   # 刷新 HTML fixture（ITSM 改版时用
 cargo run --example probe_log_ws -- <taskId> auto   # 打印日志 WebSocket 的原始帧（排查「日志不实时更新」）
 ```
 
-### 打包
+### 打包（本地自用 / 给同事装）
 
 ```bash
-npm run tauri build                                   # 当前平台（不含 updater 产物，无需签名密钥）
-npm run tauri build -- --target universal-apple-darwin # macOS 通用包（需先 rustup target add x86_64-apple-darwin）
+npm run tauri build                                    # 当前平台，不生成 updater 产物，不需要签名密钥
+npm run tauri build -- --target universal-apple-darwin  # macOS 通用包（先 rustup target add x86_64-apple-darwin）
+```
 
-# 发版（生成 .app.tar.gz / .exe / AppImage 的 .sig，供应用内更新使用）
-export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/zz-deploy-desktop.key"
+产物在 `src-tauri/target/release/bundle/` 下：macOS 是 `dmg/*.dmg` + `macos/*.app`，
+Windows 是 `nsis/*-setup.exe` + `msi/*.msi`，Linux 是 `appimage/*.AppImage` + `deb/*.deb`。
+
+**每个平台的包必须在自己的平台上构建**，Tauri 不支持交叉编译打包。
+
+### 双平台发版（macOS + Windows）：从构建到 Release
+
+发版比本地打包多两件事：**用私钥签名**（否则客户端装不了更新）和**生成 `latest.json`**
+（客户端只认这个清单）。细节见 [`docs/updates.md`](docs/updates.md)，下面是照做就能走完的流程。
+
+#### 0. 发版前
+
+1. 版本号四处一致（见下一节「版本号」），且**必须大于已发布版本**——客户端只认更大的 SemVer。
+2. 工作区干净，`npm test` 与 `cd src-tauri && cargo test` 全绿。
+3. 私钥在手：`~/.tauri/zz-deploy-desktop.key`。**macOS 与 Windows 必须用同一把**：
+   `tauri.conf.json` 里的公钥与它配对，换钥匙等于让老用户再也收不到更新。
+4. 在干净的克隆里跑一遍全量构建（见下面「推送给同事前自检」），避免被 `.gitignore`
+   漏掉的源码文件只存在于你自己的机器上。
+
+#### 1. macOS 出包（Apple 芯片）
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$HOME/.tauri/zz-deploy-desktop.key"   # 路径或内容都行
+npm run build:release      # = tauri build --config src-tauri/tauri.release.conf.json
+```
+
+| 产物 | 用途 |
+|---|---|
+| `bundle/macos/ZhizhenDeploy.app.tar.gz` | **应用内更新用**（updater 下载的就是它） |
+| `bundle/macos/ZhizhenDeploy.app.tar.gz.sig` | 签名，必须一起上传 |
+| `bundle/dmg/ZhizhenDeploy_<版本>_aarch64.dmg` | 给**首次安装**的同事 |
+
+出包后自检（签名有效、版本对、不会「已损坏」）：
+
+```bash
+APP="src-tauri/target/release/bundle/macos/ZhizhenDeploy.app"
+codesign --verify --deep --strict "$APP"; echo "期望退出码 0"
+base64 -d < "$APP.tar.gz.sig" | grep -a -o "version:[^[:space:]]*"   # 必须等于本次版本号
+```
+
+> Intel Mac 需要清单里额外有 `darwin-x86_64`（`--target x86_64-apple-darwin` 构建，或出 universal 包）。
+> 清单里没有对应 key 的平台收不到更新。
+
+#### 2. Windows 出包（在 Windows 机器上，同一把私钥）
+
+Windows 上 `git clone` 到**同一个 tag/commit**，然后：
+
+```powershell
+# PowerShell
+npm ci
+$env:TAURI_SIGNING_PRIVATE_KEY="$HOME\.tauri\zz-deploy-desktop.key"
 npm run build:release
 ```
 
-产物：
+```bash
+# Git Bash：路径要转成 Windows 形式（Git Bash 的 /c/... Rust 读不到）
+export TAURI_SIGNING_PRIVATE_KEY="$(cygpath -w "$HOME/.tauri/zz-deploy-desktop.key")"
+# 或：export TAURI_SIGNING_PRIVATE_KEY='C:\Users\你\.tauri\zz-deploy-desktop.key'
+# 或直接把密钥内容塞进去：export TAURI_SIGNING_PRIVATE_KEY="$(cat "$HOME/.tauri/zz-deploy-desktop.key")"
+echo "$TAURI_SIGNING_PRIVATE_KEY"    # 空值不会报错，但产物没有 .sig，下一步的脚本会拦
+npm run build:release
+```
 
-| 平台 | 路径 |
+Windows 的两种安装包**都要带上**，客户端按各自的 key 取：
+
+| 产物 | 清单里的 key | 谁用 |
+|---|---|---|
+| `bundle/nsis/ZhizhenDeploy_<版本>_x64-setup.exe` + `.sig` | `windows-x86_64-nsis` | 用 `.exe` 安装的用户 |
+| `bundle/msi/ZhizhenDeploy_<版本>_x64_en-US.msi` + `.sig` | `windows-x86_64-msi` | 用 `.msi` 安装的用户 |
+
+MSI 那步若因 WiX 报错而 NSIS 已生成，可以只出 NSIS：
+`npx tauri build --config src-tauri/tauri.release.conf.json --bundles nsis`
+（代价：MSI 安装的老用户这次收不到更新，要手动装一次新包。）
+
+#### 3. 把产物汇总到一处
+
+`release-assets/` 已在 `.gitignore` 里，可以放构建产物：
+
+```bash
+mkdir -p release-assets/0.2.0
+cp src-tauri/target/release/bundle/macos/ZhizhenDeploy.app.tar.gz{,.sig} release-assets/0.2.0/
+cp src-tauri/target/release/bundle/dmg/ZhizhenDeploy_0.2.0_aarch64.dmg   release-assets/0.2.0/
+# Windows 产物拷进来（U 盘 / scp / 共享盘都行）
+ls release-assets/0.2.0/
+```
+
+#### 4. 生成 `latest.json`（关键一步）
+
+```bash
+cat > release-notes.md <<'NOTES'
+一句话一句地写使用者能看懂的变化（会显示在客户端的更新提示里）。
+NOTES
+
+node scripts/make-latest-json.mjs \
+  --version 0.2.0 \
+  --base-url https://github.com/hcer1999/zz-deploy-desktop/releases/download/v0.2.0 \
+  --notes-file release-notes.md \
+  --platform "darwin-aarch64=release-assets/0.2.0/ZhizhenDeploy.app.tar.gz" \
+  --platform "windows-x86_64-nsis=release-assets/0.2.0/ZhizhenDeploy_0.2.0_x64-setup.exe" \
+  --platform "windows-x86_64-msi=release-assets/0.2.0/ZhizhenDeploy_0.2.0_x64_en-US.msi" \
+  --out release-assets/0.2.0/latest.json
+```
+
+脚本会逐个读 `.sig`，**校验签名里的构建版本与 `--version` 一致**（防止把旧包配进新清单），
+并确认每个平台的文件都在；缺签名或版本不符会直接报错。
+
+#### 5. 建 GitHub Release
+
+客户端读的是 `releases/latest/download/latest.json`，所以：
+
+1. tag 用 `v<版本号>`（如 `v0.2.0`），target 选 `main`。
+2. **不要勾 pre-release / draft**——`releases/latest` 会跳过它们，勾了等于没发布。
+3. 上传：`latest.json` + 各平台更新包与 `.sig` + macOS `.dmg`（首次安装用）。
+4. 已经发过一版、想补平台时**不用新建 tag**：在同一个 Release 里 Edit → 上传新文件 →
+   用同名文件替换 `latest.json`（GitHub 允许替换同名 asset）。替换时务必保留原来那些
+   平台的条目，否则已覆盖的平台反而收不到更新。
+
+#### 6. 发布后验证
+
+```bash
+curl -sL https://github.com/hcer1999/zz-deploy-desktop/releases/latest/download/latest.json | head -20
+# 期望：version 是本次版本；platforms 里有 darwin-aarch64（以及 windows-*）
+```
+
+然后用一台装着**上一个版本打包版**的机器（不是 dev 模式）重启客户端：启动时会自动检查，
+应弹「发现新版本 → 立即更新」。关于页与托盘也能手动检查；点「立即更新」会下载、验签、安装，
+macOS/Linux 等用户点「立即重启」生效，Windows 由安装器拉起。
+
+### 发版常见坑
+
+| 现象 | 原因与处理 |
 |---|---|
-| macOS | `src-tauri/target/release/bundle/dmg/*.dmg`、`bundle/macos/*.app` |
-| Windows | `src-tauri/target/release/bundle/msi/*.msi`、`bundle/nsis/*.exe` |
-| Linux | `src-tauri/target/release/bundle/appimage/*.AppImage`、`bundle/deb/*.deb` |
-
-**三端产物必须在各自平台上构建**，Tauri 不支持交叉编译打包。
-`build:release` 的签名密钥、`latest.json` 与发布流程见 [`docs/updates.md`](docs/updates.md)。
+| 客户端完全没提示 | Release 被标成 pre-release/draft；或 `latest.json` 里没有当前平台 key |
+| 提示有更新但装不上 | 包不是用**同一把私钥**签的；或 `.sig` 没上传；或清单里的 `url` 与实际文件名不符 |
+| 只有 Mac 收到更新 | 清单里没有 `windows-*`；反过来只发 Windows 会让 Mac 收不到 |
+| 上次能收到、这次收不到 | 新 Release 的清单漏了旧平台；每个 release 都要带全所有平台的包 |
+| 提示「已是最新」 | 清单里的版本没大于当前版本（SemVer 比较） |
+| 下载完没反应 | 应用在开发模式（`npm run tauri dev`）跑——updater 只能装在打包后的应用里 |
+| 私钥丢了 | 已经发出去的旧版本永远无法自动更新，只能让用户手动装新包；私钥务必离线备份 |
 
 ### 版本号
 
@@ -146,7 +271,7 @@ npm run build:release
 出包后建议自检：
 
 ```bash
-APP="src-tauri/target/release/bundle/macos/至真部署.app"
+APP="src-tauri/target/release/bundle/macos/ZhizhenDeploy.app"
 codesign --verify --deep --strict "$APP"; echo "期望退出码 0"
 codesign -dv --verbose=2 "$APP" | grep Sealed    # 期望 Sealed Resources version=2
 spctl -a -vv -t exec "$APP"                      # 期望 rejected（未公证属正常）
@@ -250,3 +375,6 @@ docs/               设计与实施文档（见下）
 | [`docs/install-unsigned.md`](docs/install-unsigned.md) | 未签名版本的安装放行与签名不变量 |
 | [`docs/updates.md`](docs/updates.md) | 应用内更新：签名密钥、release 构建、latest.json、平台行为与排查 |
 | [`docs/distribution.md`](docs/distribution.md) | 分发指南：产物、按平台选包、新版本怎么发、CI 矩阵示例 |
+
+发版操作手册就在本文「双平台发版（macOS + Windows）」与「发版常见坑」两节；
+密钥生成/轮换、平台行为、内网更新源等细节看 `docs/updates.md`。
