@@ -125,7 +125,9 @@ onMounted(async () => {
     readOnly: true,
     domReadOnly: true,
     minimap: { enabled: false },
-    lineNumbers: "off",
+    // 行号打开：构建日志里报错常带 "行/步骤" 语境，行号也方便和同事对着看
+    lineNumbers: "on",
+    lineNumbersMinChars: 4,
     wordWrap: "on",
     scrollBeyondLastLine: false,
     fontSize: 12,

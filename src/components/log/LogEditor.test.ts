@@ -15,6 +15,7 @@ const calls = {
   layout: 0,
   dispose: 0,
   decorations: [] as unknown[][],
+  createOptions: null as Record<string, unknown> | null,
 };
 
 class FakeModel {
@@ -75,7 +76,10 @@ let model = new FakeModel();
 
 vi.mock("monaco-editor/editor/editor.api", () => ({
   editor: {
-    create: () => fakeEditor,
+    create: (_el: unknown, opts: Record<string, unknown>) => {
+      calls.createOptions = opts;
+      return fakeEditor;
+    },
     defineTheme: vi.fn(),
     // 与真实 monaco 的 ScrollType.Immediate 对齐
     ScrollType: { Smooth: 0, Immediate: 1 },
@@ -102,6 +106,7 @@ function resetCalls(): void {
   calls.layout = 0;
   calls.dispose = 0;
   calls.decorations.length = 0;
+  calls.createOptions = null;
   model = new FakeModel();
 }
 
@@ -218,6 +223,11 @@ describe("LogEditor", () => {
     expect(fakeEditor.getModel().getValue()).toBe("");
     w.unmount();
     mounted = null;
+  });
+
+  it("显示行号（对齐构建日志的行号定位习惯）", async () => {
+    await mountEditor({ lines: [line(1, "a")] });
+    expect(calls.createOptions?.lineNumbers).toBe("on");
   });
 
   it("打开查找面板（⌘F 的落点）与按关键词搜索", async () => {
