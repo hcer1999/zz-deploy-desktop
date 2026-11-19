@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import { ENVS, fetchProjects, fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
+import {
+  ENVS,
+  fetchProjects,
+  fetchBranches,
+  fetchCommits,
+  fetchTaskList,
+  submitDeploy,
+} from "@/api/deploy";
 import type { CommitInfo, DeployType, Project } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useSettingsStore } from "@/stores/settings";
 import { useTabsStore } from "@/stores/tabs";
 import { useTasksStore } from "@/stores/tasks";
+import { useBatchStore } from "@/stores/batch";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
@@ -124,9 +132,15 @@ async function pickBranch(branch: string): Promise<void> {
 const tabs = useTabsStore();
 const tasks = useTasksStore();
 const favorites = useFavoritesStore();
+const batches = useBatchStore();
 
 const submitting = ref(false);
 const confirmOpen = ref(false);
+/**
+ * 构建成功后自动上线。默认关、不记忆：这是"不再问你"的危险开关，
+ * 每次都要有意识地勾（与批量部署同一原则）。
+ */
+const autoOnline = ref(false);
 const flash = ref("");
 
 /**
@@ -166,6 +180,17 @@ async function doSubmit(): Promise<void> {
   submitting.value = true;
   error.value = "";
   try {
+    // 服务端提交接口不返回 taskId，自动上线要靠"比基线新"去认领新任务，
+    // 所以勾了开关就得先记下当前最大 taskId（拿不到也能跑，只是少一层保护）
+    let baseline = 0;
+    if (autoOnline.value) {
+      try {
+        const page = await fetchTaskList(deployType.value, 1, { search: "", envId: 0 });
+        baseline = page.tasks.reduce((max, t) => Math.max(max, t.taskId), 0);
+      } catch {
+        baseline = 0;
+      }
+    }
     const ok = await submitDeploy(deployType.value, selectedProject.value.id, {
       title: title.value,
       branchtag: selectedBranch.value,
@@ -175,6 +200,25 @@ async function doSubmit(): Promise<void> {
     if (!ok) {
       error.value = "提交失败，请重试";
       return;
+    }
+    if (autoOnline.value && selectedProject.value && envId.value !== null) {
+      batches.start({
+        kind: "single",
+        autoOnline: true,
+        baselines: { [deployType.value]: baseline },
+        items: [
+          {
+            deployType: deployType.value,
+            envId: envId.value,
+            envName: envName.value,
+            projectId: selectedProject.value.id,
+            projectName: selectedProject.value.name,
+            branch: selectedBranch.value,
+            version: selectedCommit.value,
+          },
+        ],
+      });
+      batches.ensureWatching();
     }
     // 提交成功：让任务列表切到对应类型与第 1 页，然后跳过去
     tasks.deployType = deployType.value;
@@ -323,6 +367,21 @@ async function onSaveFavorite(): Promise<void> {
       </div>
       <p class="text-xs text-text-muted">
         即将部署：{{ envName }} / {{ selectedProject?.name }} / {{ selectedBranch }}
+      </p>
+
+      <label class="flex items-start gap-2 text-xs">
+        <input v-model="autoOnline" type="checkbox" data-test="auto-online-single" class="mt-0.5" />
+        <span>
+          构建成功后<strong>自动上线</strong>
+          <span class="text-text-muted">（默认关闭）</span>
+        </span>
+      </label>
+      <p
+        v-if="autoOnline"
+        data-test="auto-online-warning"
+        class="text-[11px] text-danger leading-relaxed border border-danger/40 bg-danger/10 rounded-md px-3 py-2"
+      >
+        ⚠️ 已开启自动上线：构建成功后立刻上线，期间不会再问你。若服务端列表里识别不到这次任务，本次不会自动上线。
       </p>
       <div class="flex gap-2">
         <Button :disabled="submitting" @click="confirmOpen = true">

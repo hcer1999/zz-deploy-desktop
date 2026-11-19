@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
+import { fetchBranches, fetchCommits, fetchTaskList, submitDeploy } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useTasksStore } from "@/stores/tasks";
+import { useBatchStore } from "@/stores/batch";
 import { useTabsStore } from "@/stores/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
@@ -15,6 +16,7 @@ import { GripVertical } from "@lucide/vue";
 const favorites = useFavoritesStore();
 const tasks = useTasksStore();
 const tabs = useTabsStore();
+const batches = useBatchStore();
 
 const expandedId = ref<string | null>(null);
 const pendingDelete = ref<string | null>(null);
@@ -60,6 +62,13 @@ interface Draft {
   submitting: boolean;
   error: string;
 }
+
+/**
+ * 每条收藏的「构建成功后自动上线」勾选状态。
+ * 用 id 做键、默认不存在（= 关）：收起再展开可以保留本次勾选，
+ * 但换一条收藏不会带上别人的选择，且**不写进收藏数据**（危险开关每次都重新勾）。
+ */
+const autoOnlineByFav = ref<Record<string, boolean>>({});
 
 /** 每个展开项的临时状态。用 id 做键，收起后再展开会重置 */
 const drafts = ref<Record<string, Draft>>({});
@@ -144,6 +153,8 @@ async function onReorderEnd(): Promise<void> {
 async function toggle(id: string): Promise<void> {
   if (expandedId.value === id) {
     expandedId.value = null;
+    // 收起即忘掉这次的自动上线勾选：下次展开默认还是关的
+    delete autoOnlineByFav.value[id];
     return;
   }
   expandedId.value = id;
@@ -218,6 +229,17 @@ async function quickDeploy(id: string): Promise<void> {
   d.submitting = true;
   d.error = "";
   try {
+    const autoOnline = autoOnlineByFav.value[id] === true;
+    // 与向导同构：勾了自动上线就先记下当前最大 taskId 作为认领基线
+    let baseline = 0;
+    if (autoOnline) {
+      try {
+        const page = await fetchTaskList(fav.deployType, 1, { search: "", envId: 0 });
+        baseline = page.tasks.reduce((max, t) => Math.max(max, t.taskId), 0);
+      } catch {
+        baseline = 0;
+      }
+    }
     const ok = await submitDeploy(fav.deployType, fav.projectId, {
       title: "",
       branchtag: d.branch,
@@ -227,6 +249,25 @@ async function quickDeploy(id: string): Promise<void> {
       d.error = "提交失败，请重试";
       return;
     }
+    if (autoOnline) {
+      batches.start({
+        kind: "single",
+        autoOnline: true,
+        baselines: { [fav.deployType]: baseline },
+        items: [
+          {
+            deployType: fav.deployType,
+            envId: fav.envId,
+            envName: fav.envName,
+            projectId: fav.projectId,
+            projectName: fav.projectName,
+            branch: d.branch,
+            version: d.commit,
+          },
+        ],
+      });
+      batches.ensureWatching();
+    }
     // 与向导保持一致：切到对应类型的任务列表。
     // 任务列表会因 activeId 变化自动刷新（见 TaskListView 的 syncVisibility），
     // 不需要在这里手动触发。
@@ -234,6 +275,8 @@ async function quickDeploy(id: string): Promise<void> {
     tasks.page = 1;
     tabs.open({ kind: "list" });
     expandedId.value = null;
+    // 展开项收起，自动上线勾选一并不再保留（与手动收起同一语义）
+    delete autoOnlineByFav.value[id];
   } catch (e) {
     d.error = toUserMessage(e);
   } finally {
@@ -390,6 +433,30 @@ async function confirmDelete(): Promise<void> {
           </div>
 
           <p v-if="draft(f.id).error" class="text-[11px] text-danger">{{ draft(f.id).error }}</p>
+
+          <label class="flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              data-test="auto-online-single"
+              class="mt-0.5"
+              :checked="autoOnlineByFav[f.id] === true"
+              @change="
+                (e) =>
+                  (autoOnlineByFav[f.id] = (e.target as HTMLInputElement).checked)
+              "
+            />
+            <span>
+              构建成功后<strong>自动上线</strong>
+              <span class="text-text-muted">（默认关闭）</span>
+            </span>
+          </label>
+          <p
+            v-if="autoOnlineByFav[f.id]"
+            data-test="auto-online-warning"
+            class="text-[11px] text-danger leading-relaxed border border-danger/40 bg-danger/10 rounded-md px-3 py-2"
+          >
+            ⚠️ 已开启自动上线：构建成功后立刻上线，期间不会再问你。若服务端列表里识别不到这次任务，本次不会自动上线。
+          </p>
 
           <Button
             size="sm"

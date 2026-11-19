@@ -42,6 +42,12 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     },
   ]),
   submitDeploy: vi.fn(async () => true),
+  fetchTaskList: vi.fn(async () => ({
+    tasks: [{ taskId: 900 }],
+    pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
+    currentUser: "zhangsan",
+    envs: [],
+  })),
 }));
 
 import * as deployApi from "@/api/deploy";
@@ -50,6 +56,7 @@ import FavoritesView from "./FavoritesView.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { useFavoritesStore } from "@/stores/favorites";
+import { useBatchStore } from "@/stores/batch";
 
 let pinia: Pinia;
 let mounted: ReturnType<typeof mount>[] = [];
@@ -255,5 +262,50 @@ describe("FavoritesView 筛选", () => {
     await flushPromises();
 
     expect(store.items.map((f) => f.id)).toEqual(["1", "2"]);
+  });
+});
+
+describe("收藏快速部署的自动上线", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("勾选后提交：以 single 批次跟踪，每次展开默认都是关的", async () => {
+    const w = await mountView();
+    // 第 2 条（正式环境 / main）才有分支与 commit，可以直接提交
+    await expand(w, 1);
+    const checkbox = w.find('[data-test="auto-online-single"]');
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false);
+    await checkbox.setValue(true);
+    expect(w.find('[data-test="auto-online-warning"]').exists()).toBe(true);
+
+    await w.findAll("button").find((b) => b.text().includes("提交部署"))!.trigger("click");
+    await flushPromises();
+
+    const batches = useBatchStore();
+    expect(batches.runs).toHaveLength(1);
+    expect(batches.runs[0].kind).toBe("single");
+    expect(batches.runs[0].baselines.auto).toBe(900);
+    expect(batches.runs[0].items[0]).toMatchObject({
+      projectId: 2,
+      projectName: "proj-BBB",
+      branch: "main",
+      envName: "正式环境",
+    });
+    batches.reset();
+
+    // 提交成功后展开项会收起；再次展开时勾选必须回到关闭状态
+    await expand(w, 1);
+    expect(
+      (w.find('[data-test="auto-online-single"]').element as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("不勾选时不创建批次", async () => {
+    const w = await mountView();
+    await expand(w, 1);
+    await w.findAll("button").find((b) => b.text().includes("提交部署"))!.trigger("click");
+    await flushPromises();
+    expect(useBatchStore().runs).toHaveLength(0);
   });
 });
