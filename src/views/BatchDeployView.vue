@@ -15,11 +15,14 @@ import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
 import { useBatchStore } from "@/stores/batch";
 import { useBatchFavoritesStore } from "@/stores/batchFavorites";
+import { useTagsStore } from "@/stores/tags";
 import type { BatchFavorite } from "@/api/batchFavorites";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
 import ProjectGrid from "@/components/deploy/ProjectGrid.vue";
+import MetaDialog from "@/components/favorites/MetaDialog.vue";
+import TagFilterBar from "@/components/favorites/TagFilterBar.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -48,6 +51,7 @@ const tasks = useTasksStore();
 const tabs = useTabsStore();
 const batches = useBatchStore();
 const batchFavorites = useBatchFavoritesStore();
+const tags = useTagsStore();
 
 // ---------- 左侧：选择器 ----------
 
@@ -376,6 +380,34 @@ async function doSubmit(): Promise<void> {
 // ---------- 批量收藏 ----------
 
 const loadedFavId = ref<string | null>(null);
+/** 标签筛选：AND 收窄，只影响收藏胶囊的展示，不影响右侧计划 */
+const selectedTags = ref<string[]>([]);
+const availableTags = computed(() => {
+  const seen: string[] = [];
+  for (const f of batchFavorites.items) {
+    for (const t of f.tags ?? []) if (!seen.includes(t)) seen.push(t);
+  }
+  return seen;
+});
+const visibleBatchFavorites = computed(() =>
+  batchFavorites.items.filter((f) =>
+    selectedTags.value.every((t) => (f.tags ?? []).includes(t)),
+  ),
+);
+/** 备注/标签编辑目标（单条与批量共用同一个弹窗组件） */
+const metaTarget = ref<BatchFavorite | null>(null);
+
+async function saveMeta(meta: { note: string; tags: string[] }): Promise<void> {
+  const target = metaTarget.value;
+  if (!target) return;
+  try {
+    await batchFavorites.setMeta(target.id, meta);
+  } catch (e) {
+    error.value = toUserMessage(e);
+  } finally {
+    metaTarget.value = null;
+  }
+}
 const saveOpen = ref(false);
 const favName = ref("");
 const pendingDelete = ref<string | null>(null);
@@ -464,6 +496,13 @@ function flashMsg(msg: string): void {
 
 onMounted(async () => {
   batches.ensureWatching();
+  if (!tags.loaded) {
+    try {
+      await tags.load();
+    } catch {
+      // 标签表读不到只影响颜色兜底，不挡批量页
+    }
+  }
   if (!batchFavorites.loaded) {
     try {
       await batchFavorites.load();
@@ -487,9 +526,14 @@ onMounted(async () => {
 
       <section v-if="batchFavorites.items.length > 0" class="space-y-2">
         <Label>批量收藏（点名字载入，会替换右侧清单）</Label>
+        <TagFilterBar
+          v-if="availableTags.length > 0"
+          v-model="selectedTags"
+          :available="availableTags"
+        />
         <div class="flex flex-wrap gap-2">
           <div
-            v-for="f in batchFavorites.items"
+            v-for="f in visibleBatchFavorites"
             :key="f.id"
             :class="[
               'flex items-center gap-1 rounded-md border px-2 py-1 text-xs',
@@ -499,11 +543,33 @@ onMounted(async () => {
             <button
               data-test="load-fav"
               class="text-left hover:text-primary"
-              :title="`载入：${f.items.length} 项`"
+              :title="f.note ? `载入：${f.items.length} 项\n${f.note}` : `载入：${f.items.length} 项`"
               @click="loadFavorite(f)"
             >
               {{ f.name }}
+              <span
+                v-for="name in f.tags ?? []"
+                :key="name"
+                data-test="batch-tag"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+                :style="{
+                  backgroundColor: tags.colorOf(name) + '22',
+                  color: tags.colorOf(name),
+                  borderColor: tags.colorOf(name) + '55',
+                }"
+              >
+                {{ name }}
+              </span>
               <span class="text-text-muted">{{ f.items.length }} 项</span>
+              <span v-if="f.note" class="text-text-muted/80"> · {{ f.note }}</span>
+            </button>
+            <button
+              data-test="edit-batch-meta"
+              class="text-text-muted hover:text-text px-1"
+              title="编辑备注与标签"
+              @click="metaTarget = f"
+            >
+              ✎
             </button>
             <button
               data-test="delete-fav"
@@ -798,6 +864,16 @@ onMounted(async () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <MetaDialog
+      :open="metaTarget !== null"
+      mode="batch"
+      :target-name="metaTarget?.name ?? ''"
+      :note="metaTarget?.note ?? ''"
+      :tags="metaTarget?.tags ?? []"
+      @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
+      @save="saveMeta"
+    />
 
     <ConfirmDialog
       :open="pendingDelete !== null"
