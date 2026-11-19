@@ -1,0 +1,176 @@
+<script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import type { LogLine } from "@/lib/ansi";
+import { planModelSync, type SyncState } from "@/lib/logModel";
+import { LOG_LANGUAGE_ID, LOG_THEME, registerLogLanguage } from "@/lib/logLanguage";
+
+/**
+ * 只读日志编辑器（Monaco）。
+ *
+ * 为什么用 Monaco 而不是逐行 span：构建日志动辄几千行、每秒几十次更新，
+ * DOM 渲染既慢又做不了虚拟滚动；Monaco 自带虚拟滚动、查找框、选中复制，
+ * 语法高亮交给 zzlog（见 lib/logLanguage.ts）。
+ *
+ * 增量同步的决策在 `planModelSync`（纯函数、有单测）；这里只负责把计划
+ * 翻译成 monaco 的 API 调用。
+ */
+const props = withDefaults(
+  defineProps<{
+    lines: LogLine[];
+    dropped: number;
+    pending: string;
+    autoScroll: boolean;
+    class?: string;
+  }>(),
+  { dropped: 0, pending: "", autoScroll: true },
+);
+
+const host = ref<HTMLElement | null>(null);
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+let editor: any = null;
+let monaco: any = null;
+let state: SyncState | null = null;
+/** 进度行装饰（updates > 1 的行压暗，对应旧实现的 opacity-80） */
+let decorations: any = null;
+let disposed = false;
+
+/** ScrollType.Immediate；不引 monaco 的类型也能用 */
+const SCROLL_IMMEDIATE = 1;
+
+async function ensureMonaco(): Promise<any> {
+  if (monaco) return monaco;
+  const mod = await import("monaco-editor/editor/editor.api");
+  try {
+    // worker 只在真实运行时装：测试环境没有 Worker，也不需要 tokenize
+    const { installMonacoWorker } = await import("@/lib/monacoWorker");
+    installMonacoWorker();
+  } catch {
+    // 装不上也能读日志（只是少了编辑器内部服务）
+  }
+  registerLogLanguage(mod as unknown as Parameters<typeof registerLogLanguage>[0]);
+  monaco = mod;
+  return mod;
+}
+
+function applyPlan(): void {
+  if (!editor || disposed) return;
+  const m = editor.getModel();
+  if (!m) return;
+
+  const plan = planModelSync(state, {
+    lines: props.lines,
+    pending: props.pending,
+    dropped: props.dropped,
+  });
+
+  if (plan.mode === "reset") {
+    m.setValue(plan.text);
+  } else if (plan.edits.length > 0) {
+    // 升序、互不重叠（见 planModelSync 的约束），一次批量提交
+    const lastLine = m.getLineCount();
+    m.applyEdits(
+      plan.edits.map((e: { startLine: number; endLine: number; text: string }) => ({
+        range: new monaco.Range(
+          Math.min(e.startLine + 1, lastLine + 1),
+          1,
+          Math.min(e.endLine + 1, lastLine + 1),
+          1,
+        ),
+        text: e.text,
+        forceMoveMarkers: true,
+      })),
+    );
+  }
+  state = plan.state;
+
+  applyProgressDecorations();
+
+  if (props.autoScroll) {
+    editor.revealLine(m.getLineCount(), SCROLL_IMMEDIATE);
+  }
+}
+
+/**
+ * 进度行压暗。
+ *
+ * 用装饰而不是改文本：日志正文必须保持原样（复制/查找/导出都读模型）。
+ * 进度行数量很少（通常 0~1 行），整组重建比做 diff 简单且开销可忽略。
+ */
+function applyProgressDecorations(): void {
+  if (!editor || !monaco) return;
+  if (!decorations) decorations = editor.createDecorationsCollection([]);
+  const items = props.lines
+    .map((l, i) => ({ l, i }))
+    .filter(({ l }) => l.updates > 1)
+    .map(({ i }) => ({
+      range: new monaco.Range(i + 1, 1, i + 1, 1),
+      options: { isWholeLine: true, className: "log-progress-dim" },
+    }));
+  decorations.set(items);
+}
+
+onMounted(async () => {
+  const mod = await ensureMonaco();
+  if (disposed || !host.value) return;
+  editor = mod.editor.create(host.value, {
+    value: "",
+    language: LOG_LANGUAGE_ID,
+    theme: LOG_THEME,
+    readOnly: true,
+    domReadOnly: true,
+    minimap: { enabled: false },
+    lineNumbers: "off",
+    wordWrap: "on",
+    scrollBeyondLastLine: false,
+    fontSize: 12,
+    fontFamily:
+      "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace",
+    automaticLayout: true,
+    renderLineHighlight: "none",
+    contextmenu: false,
+    ariaLabel: "构建日志",
+  });
+  applyPlan();
+});
+
+watch(
+  () => [props.lines, props.dropped, props.pending] as const,
+  () => applyPlan(),
+  { flush: "post" },
+);
+
+function scrollToBottom(): void {
+  if (!editor) return;
+  editor.revealLine(editor.getModel()?.getLineCount() ?? 1, SCROLL_IMMEDIATE);
+}
+
+/** 从隐藏标签切回来时必须重排：display:none 期间 Monaco 的尺寸是 0 */
+function layout(): void {
+  editor?.layout();
+}
+
+function getText(): string {
+  return editor?.getModel()?.getValue() ?? "";
+}
+
+onBeforeUnmount(() => {
+  disposed = true;
+  decorations = null;
+  editor?.dispose();
+  editor = null;
+});
+
+defineExpose({ scrollToBottom, layout, getText });
+</script>
+
+<template>
+  <div ref="host" data-test="log-editor" :class="props.class" />
+</template>
+
+<style>
+/* 进度行（会被原地覆盖的行）压暗，替代旧实现的 opacity-80 */
+.log-progress-dim {
+  opacity: 0.8;
+}
+</style>

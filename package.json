@@ -25,6 +25,7 @@
     "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "monaco-editor": "^0.57.0",
     "pinia": "^4.0.3",
     "reka-ui": "^2.11.0",
     "tailwind-merge": "^3.7.0",
