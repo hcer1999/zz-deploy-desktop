@@ -6,6 +6,7 @@ vi.mock("@/api/favorites", () => ({
   saveFavorite: vi.fn(),
   deleteFavorite: vi.fn(),
   reorderFavorites: vi.fn(),
+  favoritesMetaSet: vi.fn(),
 }));
 
 import * as api from "@/api/favorites";
@@ -142,5 +143,28 @@ describe("favorites store", () => {
     s.refreshEnvNames([{ id: 1, name: "测试环境" }]);
     expect(s.items[0]).not.toBe(before);
     expect(s.items[0].envName).toBe("测试环境");
+  });
+});
+
+describe("favorites store 元数据", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  it("setMeta 只改备注与标签，并把返回项写回列表", async () => {
+    vi.mocked(api.listFavorites).mockResolvedValue([fav(), fav({ id: "2", projectId: 11 })]);
+    const s = useFavoritesStore();
+    await s.load();
+
+    vi.mocked(api.favoritesMetaSet).mockResolvedValue(
+      fav({ note: "先找产品确认", tags: ["线上", "紧急"] }),
+    );
+    await s.setMeta("1", { note: "先找产品确认", tags: ["线上", "紧急"] });
+
+    expect(api.favoritesMetaSet).toHaveBeenCalledWith("1", "先找产品确认", ["线上", "紧急"]);
+    expect(s.items[0].note).toBe("先找产品确认");
+    expect(s.items[0].tags).toEqual(["线上", "紧急"]);
+    expect(s.items[1].note).toBeUndefined();
   });
 });

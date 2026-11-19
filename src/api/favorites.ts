@@ -19,6 +19,10 @@ export interface Favorite {
   projectId: number;
   projectName: string;
   branch?: string;
+  /** 备注（收藏页编辑） */
+  note?: string;
+  /** 标签名；颜色在全局标签表里（api/tags.ts） */
+  tags?: string[];
 }
 
 export function listFavorites(): Promise<Favorite[]> {
@@ -32,6 +36,15 @@ export function saveFavorite(fav: Favorite): Promise<Favorite> {
 /** 按给定 id 顺序重排。返回服务端权威结果（顺序已落盘） */
 export function reorderFavorites(ids: string[]): Promise<Favorite[]> {
   return call<Favorite[]>("favorites_reorder", { ids });
+}
+
+/** 只改备注与标签：与 saveFavorite 分开，避免互相覆盖 */
+export function favoritesMetaSet(
+  id: string,
+  note: string,
+  tags: string[],
+): Promise<Favorite> {
+  return call<Favorite>("favorites_meta_set", { id, note, tags });
 }
 
 export function deleteFavorite(id: string): Promise<void> {
