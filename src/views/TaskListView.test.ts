@@ -112,3 +112,69 @@ describe("TaskListView 重新构建入口", () => {
     expect(w.text()).toContain("操作失败，请重试");
   });
 });
+
+describe("TaskListView 环境筛选", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  const ENVS = [
+    { id: 1, name: "测试环境" },
+    { id: 2, name: "正式环境" },
+  ];
+
+  async function mountWithEnvs(rows: DeployTask[] = []): Promise<ReturnType<typeof mount>> {
+    const w = await mountList(rows);
+    const s = useTasksStore();
+    s.envsByType.auto = ENVS;
+    await flushPromises();
+    return w;
+  }
+
+  it("下拉列出「全部环境」+ 服务端返回的环境目录", async () => {
+    const w = await mountWithEnvs();
+    const options = w.findAll('[data-test="env-filter"] option').map((o) => o.text());
+    expect(options).toEqual(["全部环境", "测试环境", "正式环境"]);
+  });
+
+  it("选择环境后回到第 1 页并带上 envId", async () => {
+    const w = await mountWithEnvs();
+    await w.find('[data-test="env-filter"]').setValue("2");
+    await flushPromises();
+    expect(useTasksStore().envId).toBe(2);
+    expect(api.fetchTaskList).toHaveBeenLastCalledWith("auto", 1, {
+      search: "",
+      envId: 2,
+    });
+  });
+
+  it("有筛选条件时显示小结与清除按钮", async () => {
+    const w = await mountWithEnvs();
+    const s = useTasksStore();
+    s.search = "zz-pay";
+    s.envId = 2;
+    await flushPromises();
+
+    const summary = w.find('[data-test="filter-summary"]');
+    expect(summary.exists()).toBe(true);
+    expect(summary.text()).toContain("正式环境");
+    expect(summary.text()).toContain("zz-pay");
+
+    await summary.find('[data-test="clear-filters"]').trigger("click");
+    await flushPromises();
+    expect(s.envId).toBe(0);
+    expect(s.search).toBe("");
+  });
+
+  it("空结果按「有没有筛选」给不同文案", async () => {
+    const w = await mountWithEnvs();
+    const s = useTasksStore();
+    await flushPromises();
+    expect(w.text()).toContain("暂无数据");
+
+    s.search = "zz-pay";
+    await flushPromises();
+    expect(w.text()).toContain("没有符合条件的任务");
+  });
+});

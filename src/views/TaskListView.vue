@@ -67,6 +67,16 @@ const lastRefreshText = computed(() =>
 
 const typeLabel = computed(() => (tasks.deployType === "auto" ? "自动化" : "Docker"));
 
+const envLabel = computed(
+  () => tasks.envs.find((e) => e.id === tasks.envId)?.name ?? `环境 #${tasks.envId}`,
+);
+
+/** 清除时把输入框草稿也一起清掉，否则框里还留着上次回车过的词 */
+async function clearFilters(): Promise<void> {
+  searchDraft.value = "";
+  await tasks.clearFilters();
+}
+
 // ---------- 构建日志标签 ----------
 
 /**
@@ -165,6 +175,20 @@ async function runAction(): Promise<void> {
           {{ t === "auto" ? "自动化" : "Docker" }}
         </Button>
       </div>
+      <!--
+        环境下拉用原生 select：环境最多二十来个、不需要搜索，
+        原生控件在三端 webview 上的键盘可达性也比自绘下拉稳。
+        参数名与服务端页面一致（env），0 = 全部环境。
+      -->
+      <select
+        data-test="env-filter"
+        :value="String(tasks.envId)"
+        class="h-8 rounded-md border border-border bg-surface px-2 text-xs text-text"
+        @change="(e) => tasks.setEnv(Number((e.target as HTMLSelectElement).value))"
+      >
+        <option value="0">全部环境</option>
+        <option v-for="e in tasks.envs" :key="e.id" :value="String(e.id)">{{ e.name }}</option>
+      </select>
       <Input
         v-model="searchDraft"
         placeholder="搜索标题 / 项目 / 提交人…"
@@ -179,6 +203,24 @@ async function runAction(): Promise<void> {
       </span>
     </div>
 
+    <div
+      v-if="tasks.search || tasks.envId > 0"
+      data-test="filter-summary"
+      class="flex items-center gap-2 text-[11px] text-text-muted"
+    >
+      <span>
+        筛选：{{ envLabel }}<template v-if="tasks.search"> · 关键词「{{ tasks.search }}」</template>
+        · 共 {{ tasks.pageInfo.totalPages }} 页
+      </span>
+      <button
+        data-test="clear-filters"
+        class="text-text-muted hover:text-text underline underline-offset-2"
+        @click="clearFilters"
+      >
+        清除筛选
+      </button>
+    </div>
+
     <p v-if="tasks.error" class="text-xs text-danger">{{ tasks.error }}</p>
 
     <p v-if="tasks.offline" class="text-xs text-warning">
@@ -189,7 +231,7 @@ async function runAction(): Promise<void> {
       v-if="tasks.tasks.length === 0 && !tasks.loading"
       class="text-xs text-text-muted py-8 text-center"
     >
-      暂无数据，点「刷新」加载
+      {{ tasks.search || tasks.envId > 0 ? "没有符合条件的任务" : "暂无数据，点「刷新」加载" }}
     </div>
 
     <div v-else class="overflow-x-auto rounded-md border border-border">
