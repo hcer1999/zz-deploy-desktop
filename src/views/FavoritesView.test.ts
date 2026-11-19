@@ -12,6 +12,8 @@ vi.mock("@/api/favorites", async () => {
       envName: "测试环境",
       projectId: 1,
       projectName: "proj-AAA",
+      note: "先找产品确认",
+      tags: ["线上"],
     },
     {
       id: "2",
@@ -22,15 +24,31 @@ vi.mock("@/api/favorites", async () => {
       projectId: 2,
       projectName: "proj-BBB",
       branch: "main",
+      tags: ["线上", "紧急"],
     },
   ];
   return {
-    listFavorites: vi.fn(async () => favs),
+    // 每次返回副本：store 会原地替换 items 里的元素，直接给同一个数组会跨用例污染
+    listFavorites: vi.fn(async () => favs.map((f) => ({ ...f }))),
     saveFavorite: vi.fn(),
     deleteFavorite: vi.fn(),
     reorderFavorites: vi.fn(),
+    favoritesMetaSet: vi.fn(async (id: string, note: string, tags: string[]) => ({
+      ...favs.find((f) => f.id === id)!,
+      note,
+      tags,
+    })),
   };
 });
+
+vi.mock("@/api/tags", () => ({
+  listTags: vi.fn(async () => [
+    { name: "线上", color: "#f87171" },
+    { name: "紧急", color: "#fbbf24" },
+  ]),
+  upsertTag: vi.fn(async () => []),
+  deleteTag: vi.fn(async () => []),
+}));
 vi.mock("@/api/deploy", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/deploy")>()),
   fetchBranches: vi.fn(async () => ["main", "dev", "feature/x"]),
@@ -307,5 +325,67 @@ describe("收藏快速部署的自动上线", () => {
     await w.findAll("button").find((b) => b.text().includes("提交部署"))!.trigger("click");
     await flushPromises();
     expect(useBatchStore().runs).toHaveLength(0);
+  });
+});
+
+describe("收藏的备注与彩色标签", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  it("行内展示标签与备注", async () => {
+    const w = await mountView();
+    expect(w.findAll('[data-test="fav-tag"]').map((x) => x.text())).toEqual([
+      "线上",
+      "线上",
+      "紧急",
+    ]);
+    expect(w.text()).toContain("先找产品确认");
+  });
+
+  it("编辑弹窗带出原值，保存写回 store 与服务端", async () => {
+    const w = await mountView();
+    await w.findAll('[data-test="edit-meta"]')[0].trigger("click");
+    await flushPromises();
+
+    const area = document.querySelector("textarea") as HTMLTextAreaElement;
+    expect(area.value).toBe("先找产品确认");
+    area.value = "改成周五发";
+    area.dispatchEvent(new Event("input"));
+    await flushPromises();
+
+    const save = Array.from(document.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "保存",
+    )!;
+    save.click();
+    await flushPromises();
+
+    expect(favApi.favoritesMetaSet).toHaveBeenCalledWith("1", "改成周五发", ["线上"]);
+    expect(useFavoritesStore().items[0].note).toBe("改成周五发");
+  });
+
+  it("标签筛选按 AND 收窄", async () => {
+    const w = await mountView();
+    const chips = w.findAll('[data-test="tag-chip"]');
+    expect(chips.map((c) => c.text())).toEqual(["线上", "紧急"]);
+
+    await chips[0].trigger("click");
+    await flushPromises();
+    expect(w.findAll('[data-test="fav-tag"]').length).toBe(3);
+
+    await w.findAll('[data-test="tag-chip"]')[1].trigger("click");
+    await flushPromises();
+    // 只有同时带「线上」「紧急」的那条留下
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+  });
+
+  it("关键词也匹配备注与标签名", async () => {
+    const w = await mountView();
+    await w.find('[data-test="fav-filter"]').setValue("先找产品");
+    await flushPromises();
+    expect(w.text()).toContain("proj-AAA");
+    expect(w.text()).not.toContain("proj-BBB");
   });
 });

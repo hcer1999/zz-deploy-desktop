@@ -5,9 +5,13 @@ import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useTasksStore } from "@/stores/tasks";
 import { useBatchStore } from "@/stores/batch";
+import { useTagsStore } from "@/stores/tags";
+import type { Favorite } from "@/api/favorites";
 import { useTabsStore } from "@/stores/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
+import MetaDialog from "@/components/favorites/MetaDialog.vue";
+import TagFilterBar from "@/components/favorites/TagFilterBar.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VueDraggable } from "vue-draggable-plus";
@@ -17,6 +21,7 @@ const favorites = useFavoritesStore();
 const tasks = useTasksStore();
 const tabs = useTabsStore();
 const batches = useBatchStore();
+const tags = useTagsStore();
 
 const expandedId = ref<string | null>(null);
 const pendingDelete = ref<string | null>(null);
@@ -24,18 +29,40 @@ const pendingDelete = ref<string | null>(null);
 // ---------- 筛选 ----------
 
 const filter = ref("");
-const filterActive = computed(() => filter.value.trim() !== "");
+/** 选中的标签按 AND 收窄（再多一个标签 = 更小的结果集），与关键词取交集 */
+const selectedTags = ref<string[]>([]);
+const filterActive = computed(
+  () => filter.value.trim() !== "" || selectedTags.value.length > 0,
+);
+
+/** 当前收藏里出现过的标签（没被任何收藏引用的标签不必占一行位置） */
+const availableTags = computed(() => {
+  const seen: string[] = [];
+  for (const f of favorites.items) {
+    for (const t of f.tags ?? []) if (!seen.includes(t)) seen.push(t);
+  }
+  return seen;
+});
 
 /** 匹配项目名 / 环境 / 分支 / 类型。空白字符归一化，方便按「正式 环境」这种写法搜 */
 const filteredItems = computed(() => {
   const q = filter.value.trim().toLowerCase();
-  if (!q) return favorites.items;
-  return favorites.items.filter((f) =>
-    [f.projectName, f.envName, f.branch ?? "", f.deployType === "auto" ? "自动化" : "Docker"]
+  return favorites.items.filter((f) => {
+    // 标签是 AND：每选一个都要求命中
+    if (!selectedTags.value.every((t) => (f.tags ?? []).includes(t))) return false;
+    if (!q) return true;
+    return [
+      f.projectName,
+      f.envName,
+      f.branch ?? "",
+      f.deployType === "auto" ? "自动化" : "Docker",
+      f.note ?? "",
+      (f.tags ?? []).join(" "),
+    ]
       .join(" ")
       .toLowerCase()
-      .includes(q),
-  );
+      .includes(q);
+  });
 });
 
 /**
@@ -107,6 +134,18 @@ const deleteTarget = computed(() =>
 function syncVisibility(): void {
   if (tabs.activeTab?.kind === "favorites") void favorites.load();
 }
+
+/** 标签表加载失败不该挡住收藏列表：颜色会退化成按名字哈希的兜底色 */
+async function ensureTags(): Promise<void> {
+  if (tags.loaded) return;
+  try {
+    await tags.load();
+  } catch {
+    // 忽略：兜底色可用
+  }
+}
+
+onMounted(() => void ensureTags());
 
 onMounted(syncVisibility);
 watch(() => tabs.activeId, syncVisibility);
@@ -284,6 +323,22 @@ async function quickDeploy(id: string): Promise<void> {
   }
 }
 
+// ---------- 备注与标签 ----------
+
+const metaTarget = ref<Favorite | null>(null);
+
+async function saveMeta(meta: { note: string; tags: string[] }): Promise<void> {
+  const target = metaTarget.value;
+  if (!target) return;
+  try {
+    await favorites.setMeta(target.id, meta);
+  } catch (e) {
+    reorderError.value = toUserMessage(e);
+  } finally {
+    metaTarget.value = null;
+  }
+}
+
 async function confirmDelete(): Promise<void> {
   if (!pendingDelete.value) return;
   const id = pendingDelete.value;
@@ -309,6 +364,12 @@ async function confirmDelete(): Promise<void> {
         匹配 {{ filteredItems.length }} / 共 {{ favorites.items.length }}
       </span>
     </div>
+
+    <TagFilterBar
+      v-if="favorites.items.length > 0 && availableTags.length > 0"
+      v-model="selectedTags"
+      :available="availableTags"
+    />
 
     <div v-if="favorites.items.length === 0" class="text-xs text-text-muted py-8 text-center">
       暂无收藏。在「新建部署」里选好项目后点「保存为收藏」。
@@ -357,10 +418,28 @@ async function confirmDelete(): Promise<void> {
             <GripVertical :size="16" />
           </button>
           <div class="flex-1 min-w-0">
-            <div class="text-sm truncate">{{ f.projectName }}</div>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-sm truncate">{{ f.projectName }}</span>
+              <span
+                v-for="name in f.tags ?? []"
+                :key="name"
+                data-test="fav-tag"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap shrink-0"
+                :style="{
+                  backgroundColor: tags.colorOf(name) + '22',
+                  color: tags.colorOf(name),
+                  borderColor: tags.colorOf(name) + '55',
+                }"
+              >
+                {{ name }}
+              </span>
+            </div>
             <div class="text-[11px] text-text-muted truncate">
               {{ f.envName }} · {{ f.deployType === "auto" ? "自动化" : "Docker" }}
               <template v-if="f.branch"> · {{ f.branch }}</template>
+            </div>
+            <div v-if="f.note" class="text-[11px] text-text-muted/80 truncate" :title="f.note">
+              {{ f.note }}
             </div>
           </div>
           <span
@@ -374,6 +453,14 @@ async function confirmDelete(): Promise<void> {
           >
             {{ f.type === "project" ? "仅项目" : "项目+分支" }}
           </span>
+          <Button
+            size="sm"
+            variant="outline"
+            data-test="edit-meta"
+            @click="metaTarget = f"
+          >
+            编辑
+          </Button>
           <Button size="sm" variant="outline" @click="toggle(f.id)">
             {{ expandedId === f.id ? "收起" : "快速部署" }}
           </Button>
@@ -468,6 +555,16 @@ async function confirmDelete(): Promise<void> {
         </div>
       </div>
     </VueDraggable>
+
+    <MetaDialog
+      :open="metaTarget !== null"
+      mode="favorite"
+      :target-name="metaTarget?.projectName ?? ''"
+      :note="metaTarget?.note ?? ''"
+      :tags="metaTarget?.tags ?? []"
+      @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
+      @save="saveMeta"
+    />
 
     <ConfirmDialog
       :open="pendingDelete !== null"
