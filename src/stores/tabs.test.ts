@@ -69,3 +69,53 @@ describe("tabs store", () => {
     expect(s.activeId).toBeNull();
   });
 });
+
+describe("closeMany", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+  });
+
+  it("关闭激活标签后聚焦剩余标签里最靠右的一个", () => {
+    const s = useTabsStore();
+    const a = s.open({ kind: "wizard" });
+    const b = s.open({ kind: "wizard" });
+    const c = s.open({ kind: "wizard" });
+    s.focus(b);
+    s.closeMany([b, c]);
+    expect(s.tabs.map((t) => t.id)).toEqual([a]);
+    expect(s.activeId).toBe(a);
+  });
+
+  it("只关非激活标签时 activeId 不变", () => {
+    const s = useTabsStore();
+    const a = s.open({ kind: "wizard" });
+    const b = s.open({ kind: "wizard" });
+    s.focus(b);
+    s.closeMany([a]);
+    expect(s.activeId).toBe(b);
+  });
+
+  it("忽略不存在的 id", () => {
+    const s = useTabsStore();
+    const a = s.open({ kind: "settings" });
+    s.closeMany(["nope", a]);
+    expect(s.tabs).toHaveLength(0);
+  });
+
+  it("空数组是 no-op", () => {
+    const s = useTabsStore();
+    s.open({ kind: "settings" });
+    s.closeMany([]);
+    expect(s.tabs).toHaveLength(1);
+  });
+
+  it("closeByKind 只关掉该类型，保留其它类型", () => {
+    const s = useTabsStore();
+    const l1 = s.open({ kind: "log", taskId: 1 });
+    const l2 = s.open({ kind: "log", taskId: 2 });
+    const w = s.open({ kind: "wizard" });
+    s.closeByKind("log");
+    expect(s.tabs.map((t) => t.id)).toEqual([w]);
+    expect([l1, l2].some((id) => s.activeId === id)).toBe(false);
+  });
+});
