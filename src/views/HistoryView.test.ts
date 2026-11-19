@@ -81,7 +81,7 @@ describe("HistoryView 预览", () => {
 
     const editor = w.find('[data-test="log-editor"]');
     expect(editor.exists()).toBe(true);
-    expect(JSON.parse(editor.attributes("data-lines"))).toEqual(["第一行", "第二行", "第三行"]);
+    expect(JSON.parse(editor.attributes("data-lines") ?? "[]")).toEqual(["第一行", "第二行", "第三行"]);
     expect(editor.attributes("data-auto")).toBe("false");
     expect(editor.attributes("data-pending")).toBe("");
   });
