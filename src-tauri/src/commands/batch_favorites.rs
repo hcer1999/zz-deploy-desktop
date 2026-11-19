@@ -43,6 +43,12 @@ pub struct BatchFavorite {
     /// 计划里的部署项（跨环境、跨分支都允许）
     #[serde(default)]
     pub items: Vec<BatchFavoriteItem>,
+    /// 用户写的备注（批量页编辑）
+    #[serde(default)]
+    pub note: String,
+    /// 标签名列表（颜色在全局标签表里）
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 /// 去重键就是名字（名字是用户给这份计划起的，同名就是同一条）。
@@ -64,6 +70,11 @@ pub fn upsert(list: &mut Vec<BatchFavorite>, mut incoming: BatchFavorite, now_ms
 
     if let Some(i) = idx {
         incoming.id = list[i].id.clone();
+        // 批量页「保存修改」只带部署参数：备注标签空着来就沿用旧的
+        if incoming.note.is_empty() && incoming.tags.is_empty() {
+            incoming.note = list[i].note.clone();
+            incoming.tags = list[i].tags.clone();
+        }
         list[i] = incoming.clone();
         return incoming;
     }
@@ -81,6 +92,39 @@ fn unique_id(list: &[BatchFavorite], now_ms: u128) -> String {
         candidate += 1;
     }
     candidate.to_string()
+}
+
+/// 只改备注与标签，计划内容一律不动
+pub fn apply_meta(
+    list: &mut [BatchFavorite],
+    id: &str,
+    note: String,
+    tags: Vec<String>,
+) -> Option<BatchFavorite> {
+    let f = list.iter_mut().find(|f| f.id == id)?;
+    f.note = note;
+    f.tags = tags;
+    Some(f.clone())
+}
+
+/// 标签改名（去重、保持顺序）
+pub fn rename_tag(list: &mut [BatchFavorite], old: &str, new: &str) {
+    for f in list.iter_mut() {
+        let mut out: Vec<String> = Vec::with_capacity(f.tags.len());
+        for t in &f.tags {
+            let name = if t == old { new } else { t.as_str() };
+            if !out.iter().any(|x| x == name) {
+                out.push(name.to_string());
+            }
+        }
+        f.tags = out;
+    }
+}
+
+pub fn strip_tag(list: &mut [BatchFavorite], name: &str) {
+    for f in list.iter_mut() {
+        f.tags.retain(|t| t != name);
+    }
 }
 
 pub fn remove(list: &mut Vec<BatchFavorite>, id: &str) {
@@ -126,11 +170,13 @@ impl From<LegacyBatchFavorite> for BatchFavorite {
                     branch: old.branch.clone(),
                 })
                 .collect(),
+            note: String::new(),
+            tags: Vec::new(),
         }
     }
 }
 
-fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<BatchFavorite>, AppError> {
+pub(crate) fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<BatchFavorite>, AppError> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AppError::config(format!("打开批量收藏存储失败：{e}")))?;
@@ -157,7 +203,7 @@ fn parse_record(value: serde_json::Value) -> Option<BatchFavorite> {
     serde_json::from_value::<BatchFavorite>(value).ok()
 }
 
-fn save_all<R: Runtime>(app: &AppHandle<R>, list: &[BatchFavorite]) -> Result<(), AppError> {
+pub(crate) fn save_all<R: Runtime>(app: &AppHandle<R>, list: &[BatchFavorite]) -> Result<(), AppError> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AppError::config(format!("打开批量收藏存储失败：{e}")))?;
@@ -194,6 +240,33 @@ pub async fn batch_favorites_save<R: Runtime>(
     Ok(saved)
 }
 
+/// 只改备注与标签
+#[tauri::command]
+pub async fn batch_favorites_meta_set<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    note: String,
+    tags: Vec<String>,
+) -> Result<BatchFavorite, AppError> {
+    crate::commands::favorites::validate_meta(&note, &tags)?;
+    let mut list = load_all(&app)?;
+    let updated = apply_meta(&mut list, &id, note, normalize_tags(tags))
+        .ok_or_else(|| AppError::config("批量收藏不存在"))?;
+    save_all(&app, &list)?;
+    Ok(updated)
+}
+
+fn normalize_tags(tags: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(tags.len());
+    for t in tags {
+        let name = t.trim().to_string();
+        if !name.is_empty() && !out.iter().any(|x| x == &name) {
+            out.push(name);
+        }
+    }
+    out
+}
+
 #[tauri::command]
 pub async fn batch_favorites_delete<R: Runtime>(
     app: AppHandle<R>,
@@ -224,6 +297,8 @@ mod tests {
             id: String::new(),
             name: name.to_string(),
             items: vec![item(1, 1, "auto", "origin/master"), item(2, 2, "docker", "origin/dev")],
+            note: String::new(),
+            tags: Vec::new(),
         }
     }
 
@@ -334,6 +409,45 @@ mod tests {
         upsert(&mut list, fav("三"), 1000);
         let ids: Vec<&str> = list.iter().map(|f| f.id.as_str()).collect();
         assert_eq!(ids, vec!["1000", "1001", "1002"]);
+    }
+
+    #[test]
+    fn upsert_keeps_existing_meta_when_incoming_is_blank() {
+        let mut list = Vec::new();
+        let mut a = fav("发版");
+        a.note = "周五晚上发".to_string();
+        a.tags = vec!["线上".to_string()];
+        let saved = upsert(&mut list, a, 1000);
+
+        // 批量页「保存修改」只带部署参数，不该把备注标签冲掉
+        let again = upsert(&mut list, fav("发版"), 2000);
+        assert_eq!(again.id, saved.id);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].note, "周五晚上发");
+        assert_eq!(list[0].tags, vec!["线上".to_string()]);
+    }
+
+    #[test]
+    fn apply_meta_updates_only_note_and_tags() {
+        let mut list = Vec::new();
+        let a = upsert(&mut list, fav("发版"), 1000);
+        let updated =
+            apply_meta(&mut list, &a.id, "备注".to_string(), vec!["线上".to_string()]).unwrap();
+        assert_eq!(updated.note, "备注");
+        assert_eq!(list[0].name, "发版");
+        assert_eq!(list[0].items.len(), 2);
+    }
+
+    #[test]
+    fn rename_and_strip_tag_work_on_batch_favorites() {
+        let mut list = Vec::new();
+        let mut a = fav("发版");
+        a.tags = vec!["线上".to_string(), "紧急".to_string()];
+        upsert(&mut list, a, 1000);
+        rename_tag(&mut list, "线上", "生产");
+        assert_eq!(list[0].tags, vec!["生产".to_string(), "紧急".to_string()]);
+        strip_tag(&mut list, "紧急");
+        assert_eq!(list[0].tags, vec!["生产".to_string()]);
     }
 
     #[test]

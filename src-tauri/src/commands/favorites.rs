@@ -24,6 +24,13 @@ pub struct Favorite {
     pub project_name: String,
     #[serde(default)]
     pub branch: Option<String>,
+    /// 用户写的备注（收藏页编辑）。空串 = 没写。
+    #[serde(default)]
+    pub note: String,
+    /// 标签名列表。颜色不在这里，存在全局标签表（见 commands/tags.rs）——
+    /// 同名标签在收藏页/批量页/筛选条里必须是同一个颜色。
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 /// 去重键，与插件 `src/favorites.ts:46` 一致：
@@ -44,6 +51,12 @@ pub fn upsert(list: &mut Vec<Favorite>, mut incoming: Favorite, now_ms: u128) ->
     let key = dedupe_key(&incoming);
     if let Some(idx) = list.iter().position(|f| dedupe_key(f) == key) {
         incoming.id = list[idx].id.clone();
+        // 向导"再收藏一次"只带部署参数：备注与标签属于收藏页的编辑职责，
+        // 空着来的就沿用旧的，否则用户的备注会被一次重新收藏冲掉。
+        if incoming.note.is_empty() && incoming.tags.is_empty() {
+            incoming.note = list[idx].note.clone();
+            incoming.tags = list[idx].tags.clone();
+        }
         list[idx] = incoming.clone();
         return incoming;
     }
@@ -65,6 +78,60 @@ fn unique_id(list: &[Favorite], now_ms: u128) -> String {
 
 pub fn remove(list: &mut Vec<Favorite>, id: &str) {
     list.retain(|f| f.id != id);
+}
+
+/// 备注与标签的校验。两处收藏（单条/批量）共用一份规则。
+pub fn validate_meta(note: &str, tags: &[String]) -> Result<(), AppError> {
+    if note.chars().count() > 500 {
+        return Err(AppError::config("备注最多 500 个字"));
+    }
+    if tags.len() > 20 {
+        return Err(AppError::config("每条收藏最多 20 个标签"));
+    }
+    for tag in tags {
+        let name = tag.trim();
+        if name.is_empty() {
+            return Err(AppError::config("标签名不能为空"));
+        }
+        if name.chars().count() > 24 {
+            return Err(AppError::config("标签名最多 24 个字"));
+        }
+    }
+    Ok(())
+}
+
+/// 只改备注与标签，部署字段一律不动。找不到 id 返回 None（命令层报错）。
+pub fn apply_meta(
+    list: &mut [Favorite],
+    id: &str,
+    note: String,
+    tags: Vec<String>,
+) -> Option<Favorite> {
+    let f = list.iter_mut().find(|f| f.id == id)?;
+    f.note = note;
+    f.tags = tags;
+    Some(f.clone())
+}
+
+/// 标签改名：把收藏里引用的旧名换成新名（去重、保持顺序）
+pub fn rename_tag(list: &mut [Favorite], old: &str, new: &str) {
+    for f in list.iter_mut() {
+        let mut out: Vec<String> = Vec::with_capacity(f.tags.len());
+        for t in &f.tags {
+            let name = if t == old { new } else { t.as_str() };
+            if !out.iter().any(|x| x == name) {
+                out.push(name.to_string());
+            }
+        }
+        f.tags = out;
+    }
+}
+
+/// 删除标签：从收藏里摘掉这个名字
+pub fn strip_tag(list: &mut [Favorite], name: &str) {
+    for f in list.iter_mut() {
+        f.tags.retain(|t| t != name);
+    }
 }
 
 /// 按给定的 id 顺序重排。
@@ -91,7 +158,7 @@ pub fn reorder(list: &[Favorite], ids: &[String]) -> Vec<Favorite> {
     out
 }
 
-fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Favorite>, AppError> {
+pub(crate) fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Favorite>, AppError> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AppError::config(format!("打开收藏存储失败：{e}")))?;
@@ -103,7 +170,7 @@ fn load_all<R: Runtime>(app: &AppHandle<R>) -> Result<Vec<Favorite>, AppError> {
     }
 }
 
-fn save_all<R: Runtime>(app: &AppHandle<R>, list: &[Favorite]) -> Result<(), AppError> {
+pub(crate) fn save_all<R: Runtime>(app: &AppHandle<R>, list: &[Favorite]) -> Result<(), AppError> {
     let store = app
         .store(STORE_FILE)
         .map_err(|e| AppError::config(format!("打开收藏存储失败：{e}")))?;
@@ -135,6 +202,36 @@ pub async fn favorites_save<R: Runtime>(
     let saved = upsert(&mut list, fav, now_ms);
     save_all(&app, &list)?;
     Ok(saved)
+}
+
+/// 只改备注与标签（收藏页的编辑入口）。
+/// 与 `favorites_save` 分开：保存部署参数与编辑元数据是两件事，
+/// 合在一个命令里必然出现"谁覆盖谁"的问题。
+#[tauri::command]
+pub async fn favorites_meta_set<R: Runtime>(
+    app: AppHandle<R>,
+    id: String,
+    note: String,
+    tags: Vec<String>,
+) -> Result<Favorite, AppError> {
+    validate_meta(&note, &tags)?;
+    let mut list = load_all(&app)?;
+    let updated = apply_meta(&mut list, &id, note, normalize_tags(tags))
+        .ok_or_else(|| AppError::config("收藏不存在"))?;
+    save_all(&app, &list)?;
+    Ok(updated)
+}
+
+/// 去空白、去重（保持首次出现的顺序）
+fn normalize_tags(tags: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::with_capacity(tags.len());
+    for t in tags {
+        let name = t.trim().to_string();
+        if !name.is_empty() && !out.iter().any(|x| x == &name) {
+            out.push(name);
+        }
+    }
+    out
 }
 
 /// 按给定的 id 顺序重排收藏。数组顺序即显示顺序。
@@ -171,7 +268,15 @@ mod tests {
             project_id: project,
             project_name: format!("zz-proj-{project}"),
             branch: branch.map(|s| s.to_string()),
+            note: String::new(),
+            tags: Vec::new(),
         }
+    }
+
+    fn with_meta(mut f: Favorite, note: &str, tags: &[&str]) -> Favorite {
+        f.note = note.to_string();
+        f.tags = tags.iter().map(|s| s.to_string()).collect();
+        f
     }
 
     #[test]
@@ -340,6 +445,94 @@ mod tests {
             out.iter().map(|f| f.project_id).collect::<Vec<_>>(),
             vec![1, 2]
         );
+    }
+
+    // ---- 备注与标签 ----
+
+    #[test]
+    fn upsert_keeps_existing_meta_when_incoming_is_blank() {
+        // 向导里对同一个项目再收藏一次时会发一条没有备注/标签的记录；
+        // 若直接覆盖，用户在收藏页写的东西就没了（旧实现的真实缺陷）
+        let mut list = vec![];
+        let saved = upsert(
+            &mut list,
+            with_meta(fav(1, 1, "auto", None), "发版前先找产品确认", &["线上", "紧急"]),
+            1000,
+        );
+        assert_eq!(list[0].note, "发版前先找产品确认");
+
+        let again = upsert(&mut list, fav(1, 1, "auto", None), 2000);
+        assert_eq!(again.id, saved.id);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].note, "发版前先找产品确认");
+        assert_eq!(list[0].tags, vec!["线上".to_string(), "紧急".to_string()]);
+    }
+
+    #[test]
+    fn apply_meta_updates_only_note_and_tags() {
+        let mut list = vec![];
+        let a = upsert(&mut list, fav(1, 1, "auto", Some("main")), 1000);
+        let updated = apply_meta(&mut list, &a.id, "备注".to_string(), vec!["线上".to_string()])
+            .expect("应找到该收藏");
+        assert_eq!(updated.note, "备注");
+        assert_eq!(updated.tags, vec!["线上".to_string()]);
+        // 部署字段一个都不能动
+        assert_eq!(list[0].project_id, 1);
+        assert_eq!(list[0].env_id, 1);
+        assert_eq!(list[0].branch.as_deref(), Some("main"));
+        assert_eq!(list[0].kind, "config");
+    }
+
+    #[test]
+    fn apply_meta_returns_none_for_unknown_id() {
+        let mut list = vec![];
+        assert!(apply_meta(&mut list, "nope", String::new(), Vec::new()).is_none());
+    }
+
+    #[test]
+    fn validate_meta_rejects_bad_values() {
+        assert!(validate_meta("ok", &["a".to_string()]).is_ok());
+        // 备注上限 500 字符
+        assert!(validate_meta(&"x".repeat(501), &[]).is_err());
+        // 标签数量上限 20
+        let many: Vec<String> = (0..21).map(|i| format!("t{i}")).collect();
+        assert!(validate_meta("", &many).is_err());
+        // 空标签名与超长标签名都不行
+        assert!(validate_meta("", &["  ".to_string()]).is_err());
+        assert!(validate_meta("", &["x".repeat(25)]).is_err());
+    }
+
+    #[test]
+    fn old_records_without_meta_deserialize_to_empty() {
+        // serde(default)：老 favorites.json 没有 note/tags 也能读
+        let old = serde_json::json!({
+            "id": "1",
+            "type": "config",
+            "deployType": "auto",
+            "envId": 1,
+            "envName": "测试环境",
+            "projectId": 7,
+            "projectName": "zz-pay",
+            "branch": "main"
+        });
+        let f: Favorite = serde_json::from_value(old).expect("老数据要能读");
+        assert_eq!(f.note, "");
+        assert!(f.tags.is_empty());
+    }
+
+    #[test]
+    fn rename_tag_and_strip_tag_touch_only_meta() {
+        let mut list = vec![];
+        upsert(&mut list, with_meta(fav(1, 1, "auto", None), "n1", &["线上", "紧急"]), 1000);
+        upsert(&mut list, with_meta(fav(2, 1, "auto", None), "n2", &["线上"]), 1001);
+
+        rename_tag(&mut list, "线上", "生产");
+        assert_eq!(list[0].tags, vec!["生产".to_string(), "紧急".to_string()]);
+        assert_eq!(list[1].tags, vec!["生产".to_string()]);
+        assert_eq!(list[0].note, "n1");
+
+        strip_tag(&mut list, "紧急");
+        assert_eq!(list[0].tags, vec!["生产".to_string()]);
     }
 
     #[test]
