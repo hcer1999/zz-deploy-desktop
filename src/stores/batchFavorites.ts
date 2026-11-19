@@ -26,6 +26,15 @@ export const useBatchFavoritesStore = defineStore("batchFavorites", () => {
     return saved;
   }
 
+  async function setMeta(
+    id: string,
+    meta: { note: string; tags: string[] },
+  ): Promise<void> {
+    const saved = await api.batchFavoritesMetaSet(id, meta.note, meta.tags);
+    const idx = items.value.findIndex((f) => f.id === saved.id);
+    if (idx >= 0) items.value[idx] = saved;
+  }
+
   async function remove(id: string): Promise<void> {
     await api.deleteBatchFavorite(id);
     items.value = items.value.filter((f) => f.id !== id);
@@ -41,7 +50,7 @@ export const useBatchFavoritesStore = defineStore("batchFavorites", () => {
     }
   }
 
-  return { items, loaded, load, save, remove, refreshEnvNames };
+  return { items, loaded, load, save, setMeta, remove, refreshEnvNames };
 });
 
 if (import.meta.hot) {

@@ -15,10 +15,14 @@ import { useTasksStore } from "@/stores/tasks";
 import { useTabsStore } from "@/stores/tabs";
 import { useBatchStore } from "@/stores/batch";
 import { useBatchFavoritesStore } from "@/stores/batchFavorites";
+import { useTagsStore } from "@/stores/tags";
 import type { BatchFavorite } from "@/api/batchFavorites";
 import EnvPicker from "@/components/deploy/EnvPicker.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
+import ProjectGrid from "@/components/deploy/ProjectGrid.vue";
+import MetaDialog from "@/components/favorites/MetaDialog.vue";
+import TagFilterBar from "@/components/favorites/TagFilterBar.vue";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -47,6 +51,7 @@ const tasks = useTasksStore();
 const tabs = useTabsStore();
 const batches = useBatchStore();
 const batchFavorites = useBatchFavoritesStore();
+const tags = useTagsStore();
 
 // ---------- 左侧：选择器 ----------
 
@@ -187,6 +192,11 @@ const autoOnline = ref(false);
 const submitted = ref(false);
 
 const completeItems = computed(() => plan.value.filter((i) => !i.invalid && i.commit));
+/**
+ * 「最近批次」只列真正的批量提交：单次部署（kind=single）也走 batch store 结算，
+ * 但它们不属于这个页面，混进来会把面板刷成流水账。
+ */
+const recentBatches = computed(() => batches.runs.filter((r) => r.kind === "batch"));
 const envCount = computed(() => new Set(plan.value.map((i) => i.envName)).size);
 
 function itemKey(type: DeployType, env: number, projectId: number): string {
@@ -309,7 +319,7 @@ async function doSubmit(): Promise<void> {
     const baselines: Partial<Record<DeployType, number>> = {};
     for (const type of new Set(targets.map((i) => i.deployType))) {
       try {
-        const page = await fetchTaskList(type, 1, "");
+        const page = await fetchTaskList(type, 1, { search: "", envId: 0 });
         baselines[type] = page.tasks.reduce((max, t) => Math.max(max, t.taskId), 0);
       } catch {
         baselines[type] = 0; // 拿不到也能跑，只是少了"比它新"这层保护
@@ -370,6 +380,34 @@ async function doSubmit(): Promise<void> {
 // ---------- 批量收藏 ----------
 
 const loadedFavId = ref<string | null>(null);
+/** 标签筛选：AND 收窄，只影响收藏胶囊的展示，不影响右侧计划 */
+const selectedTags = ref<string[]>([]);
+const availableTags = computed(() => {
+  const seen: string[] = [];
+  for (const f of batchFavorites.items) {
+    for (const t of f.tags ?? []) if (!seen.includes(t)) seen.push(t);
+  }
+  return seen;
+});
+const visibleBatchFavorites = computed(() =>
+  batchFavorites.items.filter((f) =>
+    selectedTags.value.every((t) => (f.tags ?? []).includes(t)),
+  ),
+);
+/** 备注/标签编辑目标（单条与批量共用同一个弹窗组件） */
+const metaTarget = ref<BatchFavorite | null>(null);
+
+async function saveMeta(meta: { note: string; tags: string[] }): Promise<void> {
+  const target = metaTarget.value;
+  if (!target) return;
+  try {
+    await batchFavorites.setMeta(target.id, meta);
+  } catch (e) {
+    error.value = toUserMessage(e);
+  } finally {
+    metaTarget.value = null;
+  }
+}
 const saveOpen = ref(false);
 const favName = ref("");
 const pendingDelete = ref<string | null>(null);
@@ -458,6 +496,13 @@ function flashMsg(msg: string): void {
 
 onMounted(async () => {
   batches.ensureWatching();
+  if (!tags.loaded) {
+    try {
+      await tags.load();
+    } catch {
+      // 标签表读不到只影响颜色兜底，不挡批量页
+    }
+  }
   if (!batchFavorites.loaded) {
     try {
       await batchFavorites.load();
@@ -481,9 +526,14 @@ onMounted(async () => {
 
       <section v-if="batchFavorites.items.length > 0" class="space-y-2">
         <Label>批量收藏（点名字载入，会替换右侧清单）</Label>
+        <TagFilterBar
+          v-if="availableTags.length > 0"
+          v-model="selectedTags"
+          :available="availableTags"
+        />
         <div class="flex flex-wrap gap-2">
           <div
-            v-for="f in batchFavorites.items"
+            v-for="f in visibleBatchFavorites"
             :key="f.id"
             :class="[
               'flex items-center gap-1 rounded-md border px-2 py-1 text-xs',
@@ -493,11 +543,33 @@ onMounted(async () => {
             <button
               data-test="load-fav"
               class="text-left hover:text-primary"
-              :title="`载入：${f.items.length} 项`"
+              :title="f.note ? `载入：${f.items.length} 项\n${f.note}` : `载入：${f.items.length} 项`"
               @click="loadFavorite(f)"
             >
               {{ f.name }}
+              <span
+                v-for="name in f.tags ?? []"
+                :key="name"
+                data-test="batch-tag"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap"
+                :style="{
+                  backgroundColor: tags.colorOf(name) + '22',
+                  color: tags.colorOf(name),
+                  borderColor: tags.colorOf(name) + '55',
+                }"
+              >
+                {{ name }}
+              </span>
               <span class="text-text-muted">{{ f.items.length }} 项</span>
+              <span v-if="f.note" class="text-text-muted/80"> · {{ f.note }}</span>
+            </button>
+            <button
+              data-test="edit-batch-meta"
+              class="text-text-muted hover:text-text px-1"
+              title="编辑备注与标签"
+              @click="metaTarget = f"
+            >
+              ✎
             </button>
             <button
               data-test="delete-fav"
@@ -537,23 +609,17 @@ onMounted(async () => {
 
       <section v-else-if="projects" class="space-y-2">
         <div class="flex items-center justify-between gap-3">
-          <Label>项目</Label>
+          <Label>项目（{{ filteredProjects.length }} / {{ projects.length }}）</Label>
           <Input v-model="projectSearch" placeholder="搜索项目…" class="w-56 h-8" />
         </div>
         <div v-if="projects.length === 0" class="text-xs text-text-muted">该环境下没有项目</div>
-        <div v-else class="flex flex-wrap gap-2 max-h-[200px] overflow-auto p-1">
-          <Button
-            v-for="p in filteredProjects"
-            :key="p.id"
-            :data-test="`pick-${p.id}`"
-            :variant="selectedProject?.id === p.id ? 'default' : 'secondary'"
-            size="sm"
-            class="text-xs"
-            @click="pickProject(p)"
-          >
-            {{ p.name }}
-          </Button>
-        </div>
+        <ProjectGrid
+          v-else
+          :projects="filteredProjects"
+          :selected-id="selectedProject?.id ?? null"
+          max-height-class="max-h-[200px]"
+          @pick="pickProject"
+        />
       </section>
 
       <!-- 选中项目后才出现：分支 / commit（都可选，不选就用默认最新） -->
@@ -729,9 +795,9 @@ onMounted(async () => {
       </div>
 
       <!-- 最近批次进度 -->
-      <div v-if="batches.runs.length > 0" class="space-y-1 pt-2 border-t border-border">
+      <div v-if="recentBatches.length > 0" class="space-y-1 pt-2 border-t border-border">
         <div class="text-[11px] font-semibold">最近批次</div>
-        <div v-for="run in batches.runs.slice(-2)" :key="run.id" class="text-[11px] space-y-1">
+        <div v-for="run in recentBatches.slice(-2)" :key="run.id" class="text-[11px] space-y-1">
           <div class="text-text-muted">
             {{ run.items.length }} 项{{ run.autoOnline ? " · 自动上线已开" : "" }}{{
               run.notified ? " · 已汇总通知" : ""
@@ -798,6 +864,17 @@ onMounted(async () => {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <MetaDialog
+      :open="metaTarget !== null"
+      mode="batch"
+      :target-name="metaTarget?.name ?? ''"
+      :note="metaTarget?.note ?? ''"
+      :tags="metaTarget?.tags ?? []"
+      @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
+      @save="saveMeta"
+      @changed="batchFavorites.load()"
+    />
 
     <ConfirmDialog
       :open="pendingDelete !== null"

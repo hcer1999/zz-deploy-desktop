@@ -5,7 +5,8 @@ import { useHistoryStore } from "@/stores/history";
 import { useTabsStore } from "@/stores/tabs";
 import { setOpenLog } from "@/stores/tabPayload";
 import { normalizeToLinesAsync, normalizeToTextAsync } from "@/lib/logLoad";
-import { highlightLineCached } from "@/lib/logHighlight";
+import LogEditor from "@/components/log/LogEditor.vue";
+import type { LogLine } from "@/lib/ansi";
 import { toUserMessage } from "@/api/http";
 import { exportHistory } from "@/api/history";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,14 @@ const tabs = useTabsStore();
 const search = ref("");
 const openKey = ref("");
 const openLines = ref<string[]>([]);
+
+/**
+ * 交给 LogEditor 的行：历史日志是静态的，id 用下标即可（不需要增量同步），
+ * updates 固定 1 —— 历史回看里没有"原地重画"的进度行。
+ */
+const editorLines = computed<LogLine[]>(() =>
+  openLines.value.map((text, i) => ({ id: i + 1, text, updates: 1 })),
+);
 /** 文件比预览读取上限大（更早的内容没有读进来） */
 const openTruncated = ref(false);
 /** 解析后因超过 5000 行被丢弃的行数 */
@@ -260,15 +269,14 @@ async function doClear(): Promise<void> {
               ><template v-if="openTruncated">（更早的内容未读取）</template
               >；完整内容请用「导出」。
             </p>
-            <div
-              v-for="(line, i) in openLines"
-              :key="i"
-              class="log-line whitespace-pre-wrap break-all"
-            >
-              <span v-for="(seg, j) in highlightLineCached(line)" :key="j" :class="seg.cls">{{
-                seg.text
-              }}</span>
-            </div>
+            <LogEditor
+              class="h-[360px]"
+              :lines="editorLines"
+              :dropped="0"
+              :rev="0"
+              pending=""
+              :auto-scroll="false"
+            />
           </template>
         </div>
       </li>

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 
@@ -12,6 +12,8 @@ vi.mock("@/api/favorites", async () => {
       envName: "测试环境",
       projectId: 1,
       projectName: "proj-AAA",
+      note: "先找产品确认",
+      tags: ["线上"],
     },
     {
       id: "2",
@@ -22,15 +24,31 @@ vi.mock("@/api/favorites", async () => {
       projectId: 2,
       projectName: "proj-BBB",
       branch: "main",
+      tags: ["线上", "紧急"],
     },
   ];
   return {
-    listFavorites: vi.fn(async () => favs),
+    // 每次返回副本：store 会原地替换 items 里的元素，直接给同一个数组会跨用例污染
+    listFavorites: vi.fn(async () => favs.map((f) => ({ ...f }))),
     saveFavorite: vi.fn(),
     deleteFavorite: vi.fn(),
     reorderFavorites: vi.fn(),
+    favoritesMetaSet: vi.fn(async (id: string, note: string, tags: string[]) => ({
+      ...favs.find((f) => f.id === id)!,
+      note,
+      tags,
+    })),
   };
 });
+
+vi.mock("@/api/tags", () => ({
+  listTags: vi.fn(async () => [
+    { name: "线上", color: "#f87171" },
+    { name: "紧急", color: "#fbbf24" },
+  ]),
+  upsertTag: vi.fn(async () => []),
+  deleteTag: vi.fn(async () => []),
+}));
 vi.mock("@/api/deploy", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api/deploy")>()),
   fetchBranches: vi.fn(async () => ["main", "dev", "feature/x"]),
@@ -42,6 +60,12 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     },
   ]),
   submitDeploy: vi.fn(async () => true),
+  fetchTaskList: vi.fn(async () => ({
+    tasks: [{ taskId: 900 }],
+    pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
+    currentUser: "zhangsan",
+    envs: [],
+  })),
 }));
 
 import * as deployApi from "@/api/deploy";
@@ -50,9 +74,20 @@ import FavoritesView from "./FavoritesView.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { useFavoritesStore } from "@/stores/favorites";
+import { useBatchStore } from "@/stores/batch";
+import { Select } from "@/components/ui/select";
 
 let pinia: Pinia;
 let mounted: ReturnType<typeof mount>[] = [];
+
+/**
+ * 每个用例结束先卸载再清 body：下拉弹层走 portal，
+ * 残留实例会在下一个用例里继续往已清空的 body 里插节点（实测报 insertBefore null）。
+ */
+afterEach(() => {
+  mounted.forEach((w) => w.unmount());
+  mounted = [];
+});
 
 async function mountView(): Promise<ReturnType<typeof mount>> {
   pinia = createPinia();
@@ -255,5 +290,177 @@ describe("FavoritesView 筛选", () => {
     await flushPromises();
 
     expect(store.items.map((f) => f.id)).toEqual(["1", "2"]);
+  });
+});
+
+describe("收藏快速部署的自动上线", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("勾选后提交：以 single 批次跟踪，每次展开默认都是关的", async () => {
+    const w = await mountView();
+    // 第 2 条（正式环境 / main）才有分支与 commit，可以直接提交
+    await expand(w, 1);
+    const checkbox = w.find('[data-test="auto-online-single"]');
+    expect((checkbox.element as HTMLInputElement).checked).toBe(false);
+    await checkbox.setValue(true);
+    expect(w.find('[data-test="auto-online-warning"]').exists()).toBe(true);
+
+    await w.findAll("button").find((b) => b.text().includes("提交部署"))!.trigger("click");
+    await flushPromises();
+
+    const batches = useBatchStore();
+    expect(batches.runs).toHaveLength(1);
+    expect(batches.runs[0].kind).toBe("single");
+    expect(batches.runs[0].baselines.auto).toBe(900);
+    expect(batches.runs[0].items[0]).toMatchObject({
+      projectId: 2,
+      projectName: "proj-BBB",
+      branch: "main",
+      envName: "正式环境",
+    });
+    batches.reset();
+
+    // 提交成功后展开项会收起；再次展开时勾选必须回到关闭状态
+    await expand(w, 1);
+    expect(
+      (w.find('[data-test="auto-online-single"]').element as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
+  it("不勾选时不创建批次", async () => {
+    const w = await mountView();
+    await expand(w, 1);
+    await w.findAll("button").find((b) => b.text().includes("提交部署"))!.trigger("click");
+    await flushPromises();
+    expect(useBatchStore().runs).toHaveLength(0);
+  });
+});
+
+describe("收藏的备注与彩色标签", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  it("行内展示标签与备注", async () => {
+    const w = await mountView();
+    expect(w.findAll('[data-test="fav-tag"]').map((x) => x.text())).toEqual([
+      "线上",
+      "线上",
+      "紧急",
+    ]);
+    expect(w.text()).toContain("先找产品确认");
+  });
+
+  it("编辑弹窗带出原值，保存写回 store 与服务端", async () => {
+    const w = await mountView();
+    await w.findAll('[data-test="edit-meta"]')[0].trigger("click");
+    await flushPromises();
+
+    const area = document.querySelector("textarea") as HTMLTextAreaElement;
+    expect(area.value).toBe("先找产品确认");
+    area.value = "改成周五发";
+    area.dispatchEvent(new Event("input"));
+    await flushPromises();
+
+    const save = Array.from(document.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "保存",
+    )!;
+    save.click();
+    await flushPromises();
+
+    expect(favApi.favoritesMetaSet).toHaveBeenCalledWith("1", "改成周五发", ["线上"]);
+    expect(useFavoritesStore().items[0].note).toBe("改成周五发");
+  });
+
+  it("标签改名/删除后重新加载收藏（否则行里还显示旧标签，再编辑会把旧名写回去）", async () => {
+    const w = await mountView();
+    expect(favApi.listFavorites).toHaveBeenCalledTimes(1);
+
+    await w.findAll('[data-test="edit-meta"]')[0].trigger("click");
+    await flushPromises();
+    document.querySelector<HTMLElement>('[data-test="open-tag-manager"]')!.click();
+    await flushPromises();
+    document
+      .querySelector('[data-test="tag-row"]')!
+      .querySelector<HTMLElement>('[data-test="color-#34d399"]')!
+      .click();
+    await flushPromises();
+
+    expect(favApi.listFavorites).toHaveBeenCalledTimes(2);
+  });
+
+  it("标签筛选按 AND 收窄", async () => {
+    const w = await mountView();
+    const chips = w.findAll('[data-test="tag-chip"]');
+    expect(chips.map((c) => c.text())).toEqual(["线上", "紧急"]);
+
+    await chips[0].trigger("click");
+    await flushPromises();
+    expect(w.findAll('[data-test="fav-tag"]').length).toBe(3);
+
+    await w.findAll('[data-test="tag-chip"]')[1].trigger("click");
+    await flushPromises();
+    // 只有同时带「线上」「紧急」的那条留下
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+  });
+
+  it("关键词也匹配备注与标签名", async () => {
+    const w = await mountView();
+    await w.find('[data-test="fav-filter"]').setValue("先找产品");
+    await flushPromises();
+    expect(w.text()).toContain("proj-AAA");
+    expect(w.text()).not.toContain("proj-BBB");
+  });
+});
+
+describe("收藏按环境筛选", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  async function openEnv(w: ReturnType<typeof mount>): Promise<void> {
+    await w.find('[data-test="fav-env-trigger"]').trigger("pointerdown");
+    await flushPromises();
+  }
+
+  function options(): string[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).map(
+      (o) => o.textContent?.trim() ?? "",
+    );
+  }
+
+  it("下拉用组件（不是原生 select），选项来自收藏里出现过的环境", async () => {
+    const w = await mountView();
+    expect(w.find('[data-test="fav-env-trigger"]').exists()).toBe(true);
+    expect(w.find("select").exists()).toBe(false);
+
+    await openEnv(w);
+    expect(options()).toEqual(["全部环境", "测试环境", "正式环境"]);
+  });
+
+  it("选中环境后只显示该环境的收藏", async () => {
+    const w = await mountView();
+    w.findComponent(Select).vm.$emit("update:modelValue", "2");
+    await flushPromises();
+
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+    expect(w.text()).toContain("匹配 1 / 共 2");
+  });
+
+  it("环境与标签筛选同时生效（取交集）", async () => {
+    const w = await mountView();
+    w.findComponent(Select).vm.$emit("update:modelValue", "1");
+    await flushPromises();
+
+    // 环境=测试环境 只有 proj-AAA（标签「线上」）；再选「紧急」应清空结果
+    await w.findAll('[data-test="tag-chip"]')[1].trigger("click");
+    await flushPromises();
+    expect(w.text()).toContain("没有匹配的收藏");
   });
 });

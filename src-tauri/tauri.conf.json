@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "ZhizhenDeploy",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "identifier": "com.zhizhengroup.deploy",
   "build": {
     "beforeDevCommand": "npm run dev",

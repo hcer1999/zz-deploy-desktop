@@ -19,6 +19,7 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     tasks: [] as DeployTask[],
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "zhangsan",
+    envs: [],
   })),
   submitOnline: vi.fn(async () => true),
 }));
@@ -80,6 +81,7 @@ function mockTasks(tasks: DeployTask[]): void {
     tasks,
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "zhangsan",
+    envs: [],
   });
 }
 
@@ -115,14 +117,23 @@ describe("batch store：认领与汇总", () => {
 
     mockTasks([
       task(101, { buildStatus: "构建中", version: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" }),
-      task(102, { buildStatus: "构建中", version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb" }),
+      // 项目名必须对得上才认领：proj-B 的部署要对应 proj-B 的任务行
+      task(102, {
+        buildStatus: "构建中",
+        projectName: "proj-B",
+        version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb",
+      }),
     ]);
     await b.tick();
     expect(sendNotification).not.toHaveBeenCalled(); // 还在构建：不发
 
     mockTasks([
       task(101, { buildStatus: "构建成功", version: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" }),
-      task(102, { buildStatus: "构建失败", version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb" }),
+      task(102, {
+        buildStatus: "构建失败",
+        projectName: "proj-B",
+        version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb",
+      }),
     ]);
     await b.tick();
     await SLEEP();
@@ -143,7 +154,12 @@ describe("batch store：认领与汇总", () => {
     // 还在构建 → 不上线
     mockTasks([
       task(101, { buildStatus: "构建中", version: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" }),
-      task(102, { buildStatus: "构建中", version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb" }),
+      // 项目名必须对得上才认领：proj-B 的部署要对应 proj-B 的任务行
+      task(102, {
+        buildStatus: "构建中",
+        projectName: "proj-B",
+        version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb",
+      }),
     ]);
     await b.tick();
     expect(api.submitOnline).not.toHaveBeenCalled();
@@ -151,7 +167,11 @@ describe("batch store：认领与汇总", () => {
     // 成功 → 上线；失败的那个不碰
     mockTasks([
       task(101, { buildStatus: "构建成功", version: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2" }),
-      task(102, { buildStatus: "构建失败", version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb" }),
+      task(102, {
+        buildStatus: "构建失败",
+        projectName: "proj-B",
+        version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb",
+      }),
     ]);
     await b.tick();
     await SLEEP();
@@ -238,13 +258,20 @@ describe("batch store：认领与汇总", () => {
             ],
       pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
       currentUser: "zhangsan",
+      envs: [],
     }));
 
     await b.tick();
     expect(run.items[0].taskId).toBe(101);
     expect(run.items[1].taskId).toBe(501);
-    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("auto", 1, "");
-    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("docker", 1, "");
+    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("auto", 1, {
+      search: "",
+      envId: 0,
+    });
+    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("docker", 1, {
+      search: "",
+      envId: 0,
+    });
   });
 
   it("一个任务都没认领到时超时后直接作废（不发空洞的汇总）", async () => {
@@ -257,5 +284,135 @@ describe("batch store：认领与汇总", () => {
     expect(stale).toHaveLength(0);
     expect(run.notified).toBe(true);
     expect(sendNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("单次部署的 single 批次", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+    sendNotification.mockClear();
+  });
+
+  function startSingle(batches: ReturnType<typeof useBatchStore>, projectName = "proj-A") {
+    return batches.start({
+      kind: "single",
+      autoOnline: true,
+      baselines: { auto: 100 },
+      items: [
+        {
+          deployType: "auto",
+          envId: 1,
+          envName: "测试环境",
+          projectId: 1,
+          projectName,
+          branch: "origin/master",
+          version: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2#-----#修复",
+        },
+      ],
+    });
+  }
+
+  it("kind 默认是 batch，显式传 single 时记下来", () => {
+    const b = useBatchStore();
+    expect(startRun(b).kind).toBe("batch");
+    expect(startSingle(b).kind).toBe("single");
+    b.reset();
+  });
+
+  it("认领到任务且构建成功 → 自动上线，并汇总成一条可点击的通知", async () => {
+    const b = useBatchStore();
+    startSingle(b);
+    mockTasks([task(101, { buildStatus: "构建成功" })]);
+
+    await b.tick();
+
+    expect(api.submitOnline).toHaveBeenCalledWith("auto", 101);
+    expect(sendNotification).toHaveBeenCalledTimes(1);
+    const payload = sendNotification.mock.calls[0][0] as { title: string; id?: number };
+    expect(payload.title).toBe("部署完成（含自动上线）");
+    // 单次部署的通知必须带 taskId，点通知才能定位到这次任务
+    expect(payload.id).toBe(101);
+    b.reset();
+  });
+
+  it("批量批次的汇总通知不带 taskId（没有单个任务可定位）", async () => {
+    const b = useBatchStore();
+    startRun(b);
+    mockTasks([
+      task(101, { buildStatus: "构建成功" }),
+      task(102, { buildStatus: "构建失败", projectName: "proj-B", version: "bbbbbbbb1b2b3b4b5b6b7b8b9b0babbbbbbbbbb" }),
+    ]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { title: string; id?: number };
+    expect(payload.title).toContain("批量部署");
+    expect(payload.id).toBeUndefined();
+    b.reset();
+  });
+
+  it("构建失败时不说已自动上线，也不说认领失败", async () => {
+    const b = useBatchStore();
+    startSingle(b);
+    mockTasks([task(101, { buildStatus: "构建失败" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { title: string; body: string };
+    expect(payload.body).toContain("失败");
+    expect(payload.body).not.toContain("已自动上线");
+    expect(payload.body).not.toContain("未能识别");
+    b.reset();
+  });
+
+  it("上线调用失败时明确告知（不能让人以为已上线）", async () => {
+    vi.mocked(api.submitOnline).mockResolvedValueOnce(false);
+    const b = useBatchStore();
+    startSingle(b);
+    mockTasks([task(101, { buildStatus: "构建成功" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { body: string };
+    expect(payload.body).toContain("上线失败");
+    b.reset();
+  });
+
+  it("认领不到任务时说明本次不会自动上线", async () => {
+    const b = useBatchStore();
+    const run = startSingle(b);
+    run.at = Date.now() - 31 * 60 * 1000; // 超过 TTL：走"已收到部分结果"的汇总
+    mockTasks([task(101, { buildStatus: "构建成功", projectName: "别的项目" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { body: string };
+    expect(payload.body).toContain("未能识别到对应任务");
+    expect(payload.body).not.toContain("已自动上线");
+    b.reset();
+  });
+
+  it("项目名对不上时不认领（同 commit 的别的项目不能被当成这次部署）", async () => {
+    const b = useBatchStore();
+    startSingle(b, "zz-pay");
+    mockTasks([task(101, { buildStatus: "构建成功", projectName: "zz-crm" })]);
+
+    await b.tick();
+
+    expect(b.runs[0].items[0].taskId).toBeUndefined();
+    expect(api.submitOnline).not.toHaveBeenCalled();
+    b.reset();
+  });
+
+  it("项目名带括号后缀也能对上（cleanProjectName 规范化后比较）", async () => {
+    const b = useBatchStore();
+    startSingle(b, "zz-pay（tke_node）");
+    mockTasks([task(101, { buildStatus: "构建成功", projectName: "zz-pay" })]);
+
+    await b.tick();
+
+    expect(b.runs[0].items[0].taskId).toBe(101);
+    b.reset();
   });
 });

@@ -69,9 +69,24 @@ vi.mock("@/api/batchFavorites", () => {
       const idx = items.findIndex((i) => i.id === id);
       if (idx >= 0) items.splice(idx, 1);
     }),
+    batchFavoritesMetaSet: vi.fn(async (id: string, note: string, tags: string[]) => {
+      const idx = items.findIndex((i) => i.id === id);
+      const saved = { ...items[idx], note, tags };
+      items[idx] = saved;
+      return { ...saved };
+    }),
     __items: items,
   };
 });
+
+vi.mock("@/api/tags", () => ({
+  listTags: vi.fn(async () => [
+    { name: "线上", color: "#f87171" },
+    { name: "紧急", color: "#fbbf24" },
+  ]),
+  upsertTag: vi.fn(async () => []),
+  deleteTag: vi.fn(async () => []),
+}));
 
 vi.mock("@tauri-apps/plugin-notification", () => ({
   isPermissionGranted: vi.fn(async () => true),
@@ -160,6 +175,13 @@ describe("BatchDeployView 批量计划", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
+  });
+
+  it("项目列表用 ProjectGrid 渲染，并显示项目计数", async () => {
+    const w = await mountView();
+    await pickEnv(w, "测试环境");
+    expect(w.find('[data-test="project-scroll"]').exists()).toBe(true);
+    expect(w.text()).toContain("项目（");
   });
 
   it("选中项目加入计划：默认带上该项目的分支与最新 commit", async () => {
@@ -428,5 +450,73 @@ describe("BatchDeployView 批量收藏", () => {
 
     expect(vi.mocked(favApi.deleteBatchFavorite)).toHaveBeenCalledWith("fav-1");
     expect(useBatchFavoritesStore().items).toHaveLength(0);
+  });
+});
+
+describe("BatchDeployView 批量收藏的备注与标签", () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+    const mod = (await import("@/api/batchFavorites")) as unknown as { __items: unknown[] };
+    mod.__items.length = 0;
+  });
+
+  async function mountWith(items: favApi.BatchFavorite[]): Promise<ReturnType<typeof mount>> {
+    const mod = (await import("@/api/batchFavorites")) as unknown as { __items: unknown[] };
+    for (const it of items) mod.__items.push(JSON.parse(JSON.stringify(it)));
+    return mountView();
+  }
+
+  const PLAN: favApi.BatchFavorite[] = [
+    {
+      id: "1",
+      name: "发版",
+      items: [],
+      note: "周五晚上发",
+      tags: ["线上"],
+    },
+    {
+      id: "2",
+      name: "热修",
+      items: [],
+      note: "",
+      tags: ["线上", "紧急"],
+    },
+  ];
+
+  it("胶囊上显示标签与备注", async () => {
+    const w = await mountWith(PLAN);
+    const tags = w.findAll('[data-test="batch-tag"]').map((x) => x.text());
+    expect(tags).toEqual(["线上", "线上", "紧急"]);
+    expect(w.text()).toContain("周五晚上发");
+  });
+
+  it("编辑备注与标签写回服务端", async () => {
+    const w = await mountWith(PLAN);
+    await w.findAll('[data-test="edit-batch-meta"]')[0].trigger("click");
+    await flushPromises();
+
+    const area = document.querySelector("textarea") as HTMLTextAreaElement;
+    expect(area.value).toBe("周五晚上发");
+    area.value = "改成周四";
+    area.dispatchEvent(new Event("input"));
+    await flushPromises();
+
+    const save = Array.from(document.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "保存",
+    )!;
+    save.click();
+    await flushPromises();
+
+    expect(favApi.batchFavoritesMetaSet).toHaveBeenCalledWith("1", "改成周四", ["线上"]);
+  });
+
+  it("标签筛选按 AND 只影响收藏胶囊，不动右侧计划", async () => {
+    const w = await mountWith(PLAN);
+    await w.findAll('[data-test="tag-chip"]')[1].trigger("click"); // 紧急
+    await flushPromises();
+    const names = w.findAll('[data-test="load-fav"]').map((b) => b.text());
+    expect(names.some((n) => n.includes("热修"))).toBe(true);
+    expect(names.some((n) => n.includes("发版"))).toBe(false);
   });
 });

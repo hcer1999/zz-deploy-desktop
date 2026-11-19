@@ -118,9 +118,18 @@ export const useTabsStore = defineStore("tabs", () => {
     if (tabs.value.some((t) => t.id === id)) activeId.value = id;
   }
 
+  /**
+   * 批量关闭。**倒序**逐个关：`close()` 关掉激活标签时会把焦点交给右邻，
+   * 正序关的话右邻可能本身也在待关名单里，焦点会落在一个马上要消失的标签上。
+   * 倒序时右邻一定已经处理完，最终焦点落在真正留下的那个标签。
+   */
+  function closeMany(ids: string[]): void {
+    [...ids].reverse().forEach((id) => close(id));
+  }
+
   /** 批量关闭某类标签，用于向导提交成功后自毁 */
   function closeByKind(kind: TabKind): void {
-    [...tabs.value].filter((t) => t.kind === kind).forEach((t) => close(t.id));
+    closeMany(tabs.value.filter((t) => t.kind === kind).map((t) => t.id));
   }
 
   function titleOf(tab: Tab): string {
@@ -129,7 +138,7 @@ export const useTabsStore = defineStore("tabs", () => {
     return DEFAULT_TITLES[tab.kind];
   }
 
-  return { tabs, activeId, activeTab, open, close, focus, closeByKind, titleOf };
+  return { tabs, activeId, activeTab, open, close, closeMany, focus, closeByKind, titleOf };
 });
 
 // Pinia 的 HMR 支持。

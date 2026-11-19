@@ -34,6 +34,7 @@ const PAGE = {
   tasks: [task(1), task(2)],
   pageInfo: { currentPage: 1, totalPages: 5, hasPrev: false, hasNext: true },
   currentUser: "zhangsan",
+  envs: [],
 };
 
 describe("tasks store", () => {
@@ -58,7 +59,10 @@ describe("tasks store", () => {
     s.page = 3;
     s.search = "zz-pay";
     await s.refresh();
-    expect(deployApi.fetchTaskList).toHaveBeenCalledWith("docker", 3, "zz-pay");
+    expect(deployApi.fetchTaskList).toHaveBeenCalledWith("docker", 3, {
+      search: "zz-pay",
+      envId: 0,
+    });
   });
 
   it("回填当前登录人显示名；页面拿不到时不覆盖已学到的身份", async () => {
@@ -307,6 +311,92 @@ describe("tasks store", () => {
       await vi.advanceTimersByTimeAsync(10000);
       expect(deployApi.fetchTaskList).toHaveBeenCalledTimes(1);
       s.stopPolling();
+    });
+  });
+});
+
+describe("tasks store 环境筛选", () => {
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    vi.clearAllMocks();
+  });
+
+  const ENVS_AUTO = [
+    { id: 1, name: "测试环境" },
+    { id: 2, name: "正式环境" },
+  ];
+  const ENVS_DOCKER = [{ id: 1, name: "测试环境" }];
+
+  it("setEnv 回到第 1 页并带上 envId", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    s.page = 4;
+    await s.setEnv(2);
+    expect(s.page).toBe(1);
+    expect(deployApi.fetchTaskList).toHaveBeenLastCalledWith("auto", 1, {
+      search: "",
+      envId: 2,
+    });
+  });
+
+  it("响应里的环境目录按部署类型分别缓存", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    await s.refresh();
+    expect(s.envs).toEqual(ENVS_AUTO);
+
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_DOCKER });
+    await s.setDeployType("docker");
+    expect(s.envs).toEqual(ENVS_DOCKER);
+    expect(s.envsByType.auto).toEqual(ENVS_AUTO);
+  });
+
+  it("空的环境目录不覆盖已有目录（某次解析失败不清空下拉）", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    await s.refresh();
+
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: [] });
+    await s.refresh();
+    expect(s.envs).toEqual(ENVS_AUTO);
+  });
+
+  it("切换部署类型时把 envId 归零（两套路由的环境目录不通用）", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    await s.setEnv(2);
+    await s.setDeployType("docker");
+    expect(s.envId).toBe(0);
+    expect(deployApi.fetchTaskList).toHaveBeenLastCalledWith("docker", 1, {
+      search: "",
+      envId: 0,
+    });
+  });
+
+  it("翻页保持当前环境筛选", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    await s.applySearch("zz-pay");
+    await s.setEnv(2);
+    await s.goPage(3);
+    expect(deployApi.fetchTaskList).toHaveBeenLastCalledWith("auto", 3, {
+      search: "zz-pay",
+      envId: 2,
+    });
+  });
+
+  it("clearFilters 同时清空关键词与环境并回到第 1 页", async () => {
+    vi.mocked(deployApi.fetchTaskList).mockResolvedValue({ ...PAGE, envs: ENVS_AUTO });
+    const s = useTasksStore();
+    await s.applySearch("zz");
+    await s.setEnv(2);
+    await s.clearFilters();
+    expect(s.search).toBe("");
+    expect(s.envId).toBe(0);
+    expect(s.page).toBe(1);
+    expect(deployApi.fetchTaskList).toHaveBeenLastCalledWith("auto", 1, {
+      search: "",
+      envId: 0,
     });
   });
 });

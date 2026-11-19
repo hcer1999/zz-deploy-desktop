@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 import type { DeployTask } from "@/api/parser";
@@ -9,6 +9,7 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     tasks: [],
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "",
+    envs: [],
   })),
   submitRebuild: vi.fn(async () => true),
   submitOnline: vi.fn(async () => true),
@@ -23,9 +24,17 @@ vi.mock("@/api/log", () => ({
 
 import * as api from "@/api/deploy";
 import TaskListView from "./TaskListView.vue";
+import { Select } from "@/components/ui/select";
 import { useTasksStore } from "@/stores/tasks";
 
 let pinia: Pinia;
+let mounted: ReturnType<typeof mount> | null = null;
+
+// 下拉弹层走 portal：用例之间不清掉挂载实例，残留的 portal 会在下一个用例里报错
+afterEach(() => {
+  mounted?.unmount();
+  mounted = null;
+});
 
 function task(id: number, buildStatus: string, over: Partial<DeployTask> = {}): DeployTask {
   return {
@@ -52,6 +61,7 @@ async function mountList(rows: DeployTask[]): Promise<ReturnType<typeof mount>> 
   pinia = createPinia();
   setActivePinia(pinia);
   const w = mount(TaskListView, { global: { plugins: [pinia] }, attachTo: document.body });
+  mounted = w;
   await flushPromises();
   // 挂载时 refresh() 会被 mock 覆盖成空列表，这里再放测试数据
   useTasksStore().tasks = rows;
@@ -109,5 +119,92 @@ describe("TaskListView 重新构建入口", () => {
     await confirmDialog("重新构建");
 
     expect(w.text()).toContain("操作失败，请重试");
+  });
+});
+
+describe("TaskListView 环境筛选", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  const ENVS = [
+    { id: 1, name: "测试环境" },
+    { id: 2, name: "正式环境" },
+  ];
+
+  async function mountWithEnvs(rows: DeployTask[] = []): Promise<ReturnType<typeof mount>> {
+    const w = await mountList(rows);
+    const s = useTasksStore();
+    s.envsByType.auto = ENVS;
+    await flushPromises();
+    return w;
+  }
+
+  /** 打开环境下拉（reka-ui 的 Select 用 pointerdown 触发） */
+  async function openEnvSelect(w: ReturnType<typeof mount>): Promise<void> {
+    await w.find('[data-test="env-trigger"]').trigger("pointerdown");
+    await flushPromises();
+  }
+
+  function envOptions(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'));
+  }
+
+  it("下拉列出「全部环境」+ 服务端返回的环境目录（用统一的 Select 组件，不是原生 select）", async () => {
+    const w = await mountWithEnvs();
+    expect(w.find('[data-test="env-trigger"]').exists()).toBe(true);
+    expect(w.find("select").exists()).toBe(false);
+
+    await openEnvSelect(w);
+    expect(envOptions().map((o) => o.textContent?.trim())).toEqual([
+      "全部环境",
+      "测试环境",
+      "正式环境",
+    ]);
+  });
+
+  it("选择环境后回到第 1 页并带上 envId", async () => {
+    const w = await mountWithEnvs();
+    // reka-ui 的 Select 在 pointerup 时由内容层换算选中项，jsdom 里模拟点击链路不可靠；
+    // 这里只验证"选中值 → setEnv"的接线，下拉交互本身由组件库保证。
+    const select = w.findComponent(Select);
+    select.vm.$emit("update:modelValue", "2");
+    await flushPromises();
+
+    expect(useTasksStore().envId).toBe(2);
+    expect(api.fetchTaskList).toHaveBeenLastCalledWith("auto", 1, {
+      search: "",
+      envId: 2,
+    });
+  });
+
+  it("有筛选条件时显示小结与清除按钮", async () => {
+    const w = await mountWithEnvs();
+    const s = useTasksStore();
+    s.search = "zz-pay";
+    s.envId = 2;
+    await flushPromises();
+
+    const summary = w.find('[data-test="filter-summary"]');
+    expect(summary.exists()).toBe(true);
+    expect(summary.text()).toContain("正式环境");
+    expect(summary.text()).toContain("zz-pay");
+
+    await summary.find('[data-test="clear-filters"]').trigger("click");
+    await flushPromises();
+    expect(s.envId).toBe(0);
+    expect(s.search).toBe("");
+  });
+
+  it("空结果按「有没有筛选」给不同文案", async () => {
+    const w = await mountWithEnvs();
+    const s = useTasksStore();
+    await flushPromises();
+    expect(w.text()).toContain("暂无数据");
+
+    s.search = "zz-pay";
+    await flushPromises();
+    expect(w.text()).toContain("没有符合条件的任务");
   });
 });

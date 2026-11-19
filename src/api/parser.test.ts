@@ -171,3 +171,26 @@ describe("parseTaskList - 容错", () => {
     expect(parseTaskList(html, "auto").tasks).toEqual([]);
   });
 });
+
+describe("parseTaskList 的环境目录", () => {
+  it("从任务列表页的 env 下拉解析出全部环境（跳过「按环境筛选」占位项）", () => {
+    if (!hasFixture("tasks_auto.html")) throw new Error(MISSING);
+    const { envs } = parseTaskList(fixture("tasks_auto.html"), "auto");
+    expect(envs).toHaveLength(20);
+    expect(envs).toContainEqual({ id: 1, name: "测试环境" });
+    expect(envs.some((e) => e.id === 0)).toBe(false);
+  });
+
+  it("Docker 页的环境目录与自动化页不同（服务端两套路由各自维护）", () => {
+    if (!hasFixture("tasks_docker.html")) throw new Error(MISSING);
+    const { envs } = parseTaskList(fixture("tasks_docker.html"), "docker");
+    expect(envs).toHaveLength(14);
+    expect(envs.some((e) => e.id === 0)).toBe(false);
+  });
+
+  it("没有 env 下拉时返回空数组，不影响任务解析", () => {
+    const out = parseTaskList("<html><body><table><tbody></tbody></table></body></html>");
+    expect(out.envs).toEqual([]);
+    expect(out.tasks).toEqual([]);
+  });
+});

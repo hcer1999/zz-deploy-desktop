@@ -55,8 +55,8 @@ export default defineConfig({
 
   build: {
     // 桌面应用的资源从本地磁盘加载，不涉及按需下载，单包体积大没有实际影响。
-    // 目前约 690KB：cheerio（HTML 解析，spec §1 明确要求复用）+ reka-ui 的
-    // Combobox（可搜索下拉）。上限给到 900KB，只是为了在明显变大时能收到提醒。
-    chunkSizeWarningLimit: 900,
+    // 0.2.0 起日志改用 monaco-editor：editor.api 单独一个 chunk 约 2.7MB（minify 后，
+    // 本地磁盘加载，不走网络）。上限给到 3000KB，仍然只是"明显变大时能收到提醒"。
+    chunkSizeWarningLimit: 3000,
   },
 });

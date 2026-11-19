@@ -14,6 +14,14 @@ export interface LogBuffer {
   progressIndex: Map<string, number>;
   maxLines: number;
   nextId: number;
+  /**
+   * 每次内容变化（追加 / 原地改写 / 清空 / reset）都 +1。
+   *
+   * 日志是**原地改同一个数组**（push / splice / 改字段），数组引用永远不变；
+   * 视图若只监听数组引用，第二次以后的变化全都收不到。
+   * Monaco 的增量同步需要一个"变了"的信号，就是这个计数器。
+   */
+  rev: number;
   /** 因超过 maxLines 从头部丢弃的行数（历史回看据此提示“已省略前 N 行”） */
   dropped: number;
 }
@@ -35,6 +43,7 @@ export function createLogBuffer(opts?: { maxLines?: number }): LogBuffer {
     progressIndex: new Map(),
     maxLines: opts?.maxLines ?? DEFAULT_MAX_LINES,
     nextId: 1,
+    rev: 0,
     dropped: 0,
   };
 }
@@ -144,6 +153,7 @@ function splitSegments(input: string): Piece[] {
  *    docker 是"多行 + 光标上下移"的输出，第 3 条盖不住它，这条补上
  */
 export function ingest(buf: LogBuffer, chunk: string): void {
+  buf.rev += 1;
   // 待落地的半行先并进来，后面按「重画点」重新切；pending 由这段文本自己的片段重建
   const raw = buf.pending + chunk;
   buf.pending = "";
@@ -180,6 +190,7 @@ export function ingest(buf: LogBuffer, chunk: string): void {
 
 /** 流结束时把残留片段作为最后一行收尾 */
 export function flush(buf: LogBuffer): void {
+  buf.rev += 1;
   const rest = buf.pending.trim();
   buf.pending = "";
   if (rest) pushLine(buf, rest);
@@ -193,6 +204,7 @@ export function flush(buf: LogBuffer): void {
  * `nextId` 故意保留：v-for 的 key 不复用，少一类重绘抖动。
  */
 export function reset(buf: LogBuffer): void {
+  buf.rev += 1;
   buf.lines.length = 0;
   buf.pending = "";
   buf.progressIndex.clear();

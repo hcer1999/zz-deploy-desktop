@@ -26,6 +26,10 @@ export interface BatchFavorite {
   id: string;
   name: string;
   items: BatchFavoriteItem[];
+  /** 备注（批量页编辑） */
+  note?: string;
+  /** 标签名；颜色在全局标签表里 */
+  tags?: string[];
 }
 
 export function listBatchFavorites(): Promise<BatchFavorite[]> {
@@ -34,6 +38,15 @@ export function listBatchFavorites(): Promise<BatchFavorite[]> {
 
 export function saveBatchFavorite(fav: BatchFavorite): Promise<BatchFavorite> {
   return call<BatchFavorite>("batch_favorites_save", { fav });
+}
+
+/** 只改备注与标签：与 saveBatchFavorite 分开，避免互相覆盖 */
+export function batchFavoritesMetaSet(
+  id: string,
+  note: string,
+  tags: string[],
+): Promise<BatchFavorite> {
+  return call<BatchFavorite>("batch_favorites_meta_set", { id, note, tags });
 }
 
 export function deleteBatchFavorite(id: string): Promise<void> {

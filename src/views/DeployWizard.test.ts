@@ -14,6 +14,13 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     { hash: "e5f6a7b8", message: "新增榜单入口", fullString: "e5f6a7b8#-----#新增榜单入口" },
   ]),
   submitDeploy: vi.fn(async () => true),
+  // 勾了自动上线时，提交前要读一次最大 taskId 作为认领基线
+  fetchTaskList: vi.fn(async () => ({
+    tasks: [{ taskId: 500 }],
+    pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
+    currentUser: "zhangsan",
+    envs: [],
+  })),
 }));
 vi.mock("@/api/config", () => ({
   getConfig: vi.fn(async () => CONFIG),
@@ -32,6 +39,7 @@ import * as configApi from "@/api/config";
 import DeployWizard from "./DeployWizard.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
 import { useSettingsStore } from "@/stores/settings";
+import { useBatchStore } from "@/stores/batch";
 
 /** 与 config.ts 的 AppConfig 同形；下面的用例只关心 lastDeployType / lastEnvId */
 const CONFIG: configApi.AppConfig = {
@@ -98,6 +106,12 @@ describe("DeployWizard 收藏粒度", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     document.body.innerHTML = "";
+  });
+
+  it("项目列表用 ProjectGrid 渲染（带滚动提示的公共组件）", async () => {
+    const w = await mountWizard();
+    expect(w.find('[data-test="project-scroll"]').exists()).toBe(true);
+    expect(w.text()).toContain("项目（");
   });
 
   it("没选项目时没有收藏入口", async () => {
@@ -271,5 +285,67 @@ describe("DeployWizard 记住上次的选择", () => {
     await flushPromises();
 
     expect(vi.mocked(configApi.setConfig)).not.toHaveBeenCalled();
+  });
+});
+
+describe("DeployWizard 构建成功后自动上线", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function fillAndSubmit(w: ReturnType<typeof mount>, autoOnline: boolean): Promise<void> {
+    await pickProject(w, "proj-AAA");
+    await pickBranch(w, "main");
+    await commitSelect(w).vm.$emit("update:modelValue", "e5f6a7b8#-----#新增榜单入口");
+    await flushPromises();
+
+    if (autoOnline) {
+      await w.find('[data-test="auto-online-single"]').setValue(true);
+      await flushPromises();
+      expect(w.find('[data-test="auto-online-warning"]').exists()).toBe(true);
+    } else {
+      expect(w.find('[data-test="auto-online-warning"]').exists()).toBe(false);
+    }
+
+    const submit = w.findAll("button").find((b) => b.text().includes("确认提交部署"));
+    await submit!.trigger("click");
+    await flushPromises();
+    const confirm = Array.from(document.querySelectorAll("button")).find(
+      (b) => b.textContent?.trim() === "提交",
+    );
+    confirm!.click();
+    await flushPromises();
+    await new Promise((r) => setTimeout(r, 0));
+  }
+
+  it("勾选后提交：以 single 批次跟踪，并带上完整信息", async () => {
+    const w = await mountWizard();
+    await fillAndSubmit(w, true);
+
+    const batches = useBatchStore();
+    expect(batches.runs).toHaveLength(1);
+    const run = batches.runs[0];
+    expect(run.kind).toBe("single");
+    expect(run.autoOnline).toBe(true);
+    expect(run.baselines.auto).toBe(500);
+    expect(run.items[0]).toMatchObject({
+      deployType: "auto",
+      envId: 1,
+      envName: "测试环境",
+      projectId: 7,
+      projectName: "proj-AAA",
+      branch: "main",
+      version: "e5f6a7b8#-----#新增榜单入口",
+    });
+    batches.reset();
+  });
+
+  it("不勾选时完全不动批次跟踪（保持原有的单条通知行为）", async () => {
+    const w = await mountWizard();
+    await fillAndSubmit(w, false);
+
+    const batches = useBatchStore();
+    expect(batches.runs).toHaveLength(0);
+    expect(vi.mocked(api.fetchTaskList)).not.toHaveBeenCalled();
   });
 });

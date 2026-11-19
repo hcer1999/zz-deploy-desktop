@@ -34,6 +34,16 @@ export const useFavoritesStore = defineStore("favorites", () => {
     items.value = await api.reorderFavorites(ids);
   }
 
+  /** 只改备注与标签，然后用服务端返回项覆盖本地（部署字段以服务端为准） */
+  async function setMeta(
+    id: string,
+    meta: { note: string; tags: string[] },
+  ): Promise<void> {
+    const saved = await api.favoritesMetaSet(id, meta.note, meta.tags);
+    const idx = items.value.findIndex((f) => f.id === saved.id);
+    if (idx >= 0) items.value[idx] = saved;
+  }
+
   async function remove(id: string): Promise<void> {
     await api.deleteFavorite(id);
     items.value = items.value.filter((f) => f.id !== id);
@@ -73,6 +83,7 @@ export const useFavoritesStore = defineStore("favorites", () => {
     loaded,
     load,
     save,
+    setMeta,
     remove,
     persistOrder,
     findByProject,

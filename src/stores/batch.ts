@@ -1,6 +1,6 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
 import { ref } from "vue";
-import { fetchTaskList, submitOnline } from "@/api/deploy";
+import { cleanProjectName, fetchTaskList, submitOnline } from "@/api/deploy";
 import type { DeployType } from "@/api/deploy";
 import type { DeployTask } from "@/api/parser";
 import { terminalState } from "@/lib/taskStatus";
@@ -38,9 +38,17 @@ export interface BatchItem {
   online?: "pending" | "ok" | "failed";
 }
 
+/**
+ * "batch"：批量部署提交的一批（汇总一条通知，不带 taskId）。
+ * "single"：单次部署 / 收藏快速部署里勾了「构建成功后自动上线」的那一次
+ * （1 项也算一批：认领与轮询逻辑与批量共用一份，通知带 taskId 以便点击定位）。
+ */
+export type BatchKind = "batch" | "single";
+
 export interface BatchRun {
   id: string;
   at: number;
+  kind: BatchKind;
   /** 开启后：本批任务构建成功即自动上线（默认关，UI 上有醒目警告） */
   autoOnline: boolean;
   /**
@@ -70,6 +78,14 @@ function matches(item: BatchItem, task: DeployTask, baseline: number): boolean {
   if (!task.version) return false;
   if (!(task.version.startsWith(h) || h.startsWith(task.version))) return false;
   if (item.branch && task.branch && item.branch !== task.branch) return false;
+  // 项目名也要对得上：同一个 commit 完全可能被部署到别的项目，
+  // 只靠 hash + 分支认领会在那种情况下认错行（尤其是自动上线，认错就是上错服务）。
+  // 项目名可能带「（tke_node）」这类后缀，比较前先规范化。
+  if (item.projectName && task.projectName) {
+    const want = cleanProjectName(item.projectName).toLowerCase();
+    const got = cleanProjectName(task.projectName).toLowerCase();
+    if (want !== got) return false;
+  }
   return true;
 }
 
@@ -84,6 +100,7 @@ export const useBatchStore = defineStore("batch", () => {
   let timer: ReturnType<typeof setInterval> | undefined;
 
   function start(opts: {
+    kind?: BatchKind;
     autoOnline: boolean;
     baselines: Partial<Record<DeployType, number>>;
     items: Omit<BatchItem, "taskId" | "result" | "online">[];
@@ -92,6 +109,7 @@ export const useBatchStore = defineStore("batch", () => {
     const run: BatchRun = {
       id: `batch-${seq}`,
       at: Date.now(),
+      kind: opts.kind ?? "batch",
       autoOnline: opts.autoOnline,
       baselines: { ...opts.baselines },
       items: opts.items.map((i) => ({ ...i })),
@@ -153,13 +171,35 @@ export const useBatchStore = defineStore("batch", () => {
     const onlined = run.items.filter((i) => i.online === "ok").length;
 
     const envCount = new Set(run.items.map((i) => i.envName)).size;
+    const single = run.kind === "single";
     const scope = envCount > 1 ? `${run.items.length} 个任务（跨 ${envCount} 个环境）` : `${run.items.length} 个任务`;
-    const head = partial
-      ? `批量部署：已收到 ${settled.length}/${run.items.length} 个结果（${ok} 成功 / ${failed.length} 失败）`
-      : `批量部署：${scope}全部结束（${ok} 成功 / ${failed.length} 失败）`;
+    // 没有收到任何结果时不能说"失败"（也可能只是没认领到任务）
+    const settledText = settled.length === 0 ? "未收到构建结果" : ok > 0 ? "成功" : "失败";
+    const head = single
+      ? `部署完成：${run.items[0]?.projectName ?? ""} · ${run.items[0]?.envName ?? ""}（${settledText}）`
+      : partial
+        ? `批量部署：已收到 ${settled.length}/${run.items.length} 个结果（${ok} 成功 / ${failed.length} 失败）`
+        : `批量部署：${scope}全部结束（${ok} 成功 / ${failed.length} 失败）`;
+
+    /**
+     * 单次部署的尾巴必须按**实际结果**说：
+     * - 构建失败 → 什么都没做，不要提上线；
+     * - 上线调用失败 → 明确说"上线失败，请手动处理"；
+     * - 没认领到任务 → 说明不会自动上线（不能让人以为已经上线了）。
+     * 这行文案是在告诉用户"生产到底动没动"，说错比不说更糟。
+     */
+    const singleItem = run.items[0];
+    const singleOnlineText =
+      singleItem?.online === "ok"
+        ? "已自动上线"
+        : singleItem?.online === "failed"
+          ? "上线失败，请手动处理"
+          : singleItem?.taskId === undefined
+            ? "未能识别到对应任务，本次不会自动上线"
+            : "";
 
     const tail = [
-      run.autoOnline ? `已自动上线 ${onlined} 个` : "",
+      single ? singleOnlineText : run.autoOnline ? `已自动上线 ${onlined} 个` : "",
       failed.length
         ? `失败：${failed
             .slice(0, 3)
@@ -171,7 +211,13 @@ export const useBatchStore = defineStore("batch", () => {
       .join(" · ");
 
     await sendSystemNotification({
-      title: run.autoOnline ? "批量部署完成（含自动上线）" : "批量部署完成",
+      // 单次部署的通知带 taskId：点通知能打开这次任务的日志（批量汇总没有单个任务可定位）
+      id: single ? run.items[0]?.taskId : undefined,
+      title: single
+        ? "部署完成（含自动上线）"
+        : run.autoOnline
+          ? "批量部署完成（含自动上线）"
+          : "批量部署完成",
       body: [head, tail].filter(Boolean).join("\n"),
     });
   }
@@ -192,7 +238,7 @@ export const useBatchStore = defineStore("batch", () => {
         const baseline = run.baselines[deployType] ?? 0;
         let tasks: DeployTask[];
         try {
-          tasks = (await fetchTaskList(deployType, 1, "")).tasks;
+          tasks = (await fetchTaskList(deployType, 1, { search: "", envId: 0 })).tasks;
         } catch {
           continue; // 离线/超时就等下一轮
         }
@@ -236,7 +282,10 @@ export const useBatchStore = defineStore("batch", () => {
     const out: BatchRun[] = [];
     for (const run of active()) {
       if (now - run.at < BATCH_TTL_MS) continue;
-      if (run.items.some((i) => i.taskId !== undefined)) out.push(run);
+      const claimed = run.items.some((i) => i.taskId !== undefined);
+      // 单次部署勾了自动上线：一个都没认领到也必须告一声——用户是主动要求"成功后上线"的，
+      // 不说就是让人以为生产已经更新了。批量照旧：没认领到就没抑制过单条通知，丢掉不丢信息。
+      if (claimed || (run.kind === "single" && run.autoOnline)) out.push(run);
       else run.notified = true;
     }
     return out;

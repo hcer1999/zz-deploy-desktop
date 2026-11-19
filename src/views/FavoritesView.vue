@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { fetchBranches, fetchCommits, submitDeploy } from "@/api/deploy";
+import { fetchBranches, fetchCommits, fetchTaskList, submitDeploy } from "@/api/deploy";
 import { toUserMessage } from "@/api/http";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useTasksStore } from "@/stores/tasks";
+import { useBatchStore } from "@/stores/batch";
+import { useTagsStore } from "@/stores/tags";
+import type { Favorite } from "@/api/favorites";
 import { useTabsStore } from "@/stores/tabs";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import SearchSelect from "@/components/common/SearchSelect.vue";
+import MetaDialog from "@/components/favorites/MetaDialog.vue";
+import TagFilterBar from "@/components/favorites/TagFilterBar.vue";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ENVS } from "@/api/deploy";
 import { Input } from "@/components/ui/input";
 import { VueDraggable } from "vue-draggable-plus";
 import { GripVertical } from "@lucide/vue";
@@ -15,6 +28,8 @@ import { GripVertical } from "@lucide/vue";
 const favorites = useFavoritesStore();
 const tasks = useTasksStore();
 const tabs = useTabsStore();
+const batches = useBatchStore();
+const tags = useTagsStore();
 
 const expandedId = ref<string | null>(null);
 const pendingDelete = ref<string | null>(null);
@@ -22,18 +37,65 @@ const pendingDelete = ref<string | null>(null);
 // ---------- 筛选 ----------
 
 const filter = ref("");
-const filterActive = computed(() => filter.value.trim() !== "");
+/** 0 = 全部环境 */
+const favEnvId = ref(0);
+/** 选中的标签按 AND 收窄（再多一个标签 = 更小的结果集），与关键词取交集 */
+const selectedTags = ref<string[]>([]);
+const filterActive = computed(
+  () => filter.value.trim() !== "" || selectedTags.value.length > 0 || favEnvId.value !== 0,
+);
+
+/**
+ * 环境下拉的选项：只列**收藏里真的出现过**的环境。
+ *
+ * 不直接用 ENVS 那 9 个：收藏可能来自更早的版本或手工改过的文件，
+ * 列一个没有收藏命中的环境只会得到空列表。顺序按 ENVS 的既定顺序，
+ * ENVS 里没有的环境按名字排在后面（保证顺序稳定，不随数据变动跳来跳去）。
+ */
+const envOptions = computed(() => {
+  const seen = new Map<number, string>();
+  for (const f of favorites.items) seen.set(f.envId, f.envName);
+  const order = new Map(ENVS.map((e, i) => [e.id, i]));
+  return [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => {
+      const ai = order.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bi = order.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.name.localeCompare(b.name, "zh-CN");
+    });
+});
+
+/** 当前收藏里出现过的标签（没被任何收藏引用的标签不必占一行位置） */
+const availableTags = computed(() => {
+  const seen: string[] = [];
+  for (const f of favorites.items) {
+    for (const t of f.tags ?? []) if (!seen.includes(t)) seen.push(t);
+  }
+  return seen;
+});
 
 /** 匹配项目名 / 环境 / 分支 / 类型。空白字符归一化，方便按「正式 环境」这种写法搜 */
 const filteredItems = computed(() => {
   const q = filter.value.trim().toLowerCase();
-  if (!q) return favorites.items;
-  return favorites.items.filter((f) =>
-    [f.projectName, f.envName, f.branch ?? "", f.deployType === "auto" ? "自动化" : "Docker"]
+  return favorites.items.filter((f) => {
+    // 环境与标签都是收窄条件，彼此取交集
+    if (favEnvId.value !== 0 && f.envId !== favEnvId.value) return false;
+    // 标签是 AND：每选一个都要求命中
+    if (!selectedTags.value.every((t) => (f.tags ?? []).includes(t))) return false;
+    if (!q) return true;
+    return [
+      f.projectName,
+      f.envName,
+      f.branch ?? "",
+      f.deployType === "auto" ? "自动化" : "Docker",
+      f.note ?? "",
+      (f.tags ?? []).join(" "),
+    ]
       .join(" ")
       .toLowerCase()
-      .includes(q),
-  );
+      .includes(q);
+  });
 });
 
 /**
@@ -60,6 +122,13 @@ interface Draft {
   submitting: boolean;
   error: string;
 }
+
+/**
+ * 每条收藏的「构建成功后自动上线」勾选状态。
+ * 用 id 做键、默认不存在（= 关）：收起再展开可以保留本次勾选，
+ * 但换一条收藏不会带上别人的选择，且**不写进收藏数据**（危险开关每次都重新勾）。
+ */
+const autoOnlineByFav = ref<Record<string, boolean>>({});
 
 /** 每个展开项的临时状态。用 id 做键，收起后再展开会重置 */
 const drafts = ref<Record<string, Draft>>({});
@@ -98,6 +167,18 @@ const deleteTarget = computed(() =>
 function syncVisibility(): void {
   if (tabs.activeTab?.kind === "favorites") void favorites.load();
 }
+
+/** 标签表加载失败不该挡住收藏列表：颜色会退化成按名字哈希的兜底色 */
+async function ensureTags(): Promise<void> {
+  if (tags.loaded) return;
+  try {
+    await tags.load();
+  } catch {
+    // 忽略：兜底色可用
+  }
+}
+
+onMounted(() => void ensureTags());
 
 onMounted(syncVisibility);
 watch(() => tabs.activeId, syncVisibility);
@@ -144,6 +225,8 @@ async function onReorderEnd(): Promise<void> {
 async function toggle(id: string): Promise<void> {
   if (expandedId.value === id) {
     expandedId.value = null;
+    // 收起即忘掉这次的自动上线勾选：下次展开默认还是关的
+    delete autoOnlineByFav.value[id];
     return;
   }
   expandedId.value = id;
@@ -218,6 +301,17 @@ async function quickDeploy(id: string): Promise<void> {
   d.submitting = true;
   d.error = "";
   try {
+    const autoOnline = autoOnlineByFav.value[id] === true;
+    // 与向导同构：勾了自动上线就先记下当前最大 taskId 作为认领基线
+    let baseline = 0;
+    if (autoOnline) {
+      try {
+        const page = await fetchTaskList(fav.deployType, 1, { search: "", envId: 0 });
+        baseline = page.tasks.reduce((max, t) => Math.max(max, t.taskId), 0);
+      } catch {
+        baseline = 0;
+      }
+    }
     const ok = await submitDeploy(fav.deployType, fav.projectId, {
       title: "",
       branchtag: d.branch,
@@ -227,6 +321,25 @@ async function quickDeploy(id: string): Promise<void> {
       d.error = "提交失败，请重试";
       return;
     }
+    if (autoOnline) {
+      batches.start({
+        kind: "single",
+        autoOnline: true,
+        baselines: { [fav.deployType]: baseline },
+        items: [
+          {
+            deployType: fav.deployType,
+            envId: fav.envId,
+            envName: fav.envName,
+            projectId: fav.projectId,
+            projectName: fav.projectName,
+            branch: d.branch,
+            version: d.commit,
+          },
+        ],
+      });
+      batches.ensureWatching();
+    }
     // 与向导保持一致：切到对应类型的任务列表。
     // 任务列表会因 activeId 变化自动刷新（见 TaskListView 的 syncVisibility），
     // 不需要在这里手动触发。
@@ -234,10 +347,28 @@ async function quickDeploy(id: string): Promise<void> {
     tasks.page = 1;
     tabs.open({ kind: "list" });
     expandedId.value = null;
+    // 展开项收起，自动上线勾选一并不再保留（与手动收起同一语义）
+    delete autoOnlineByFav.value[id];
   } catch (e) {
     d.error = toUserMessage(e);
   } finally {
     d.submitting = false;
+  }
+}
+
+// ---------- 备注与标签 ----------
+
+const metaTarget = ref<Favorite | null>(null);
+
+async function saveMeta(meta: { note: string; tags: string[] }): Promise<void> {
+  const target = metaTarget.value;
+  if (!target) return;
+  try {
+    await favorites.setMeta(target.id, meta);
+  } catch (e) {
+    reorderError.value = toUserMessage(e);
+  } finally {
+    metaTarget.value = null;
   }
 }
 
@@ -256,6 +387,20 @@ async function confirmDelete(): Promise<void> {
     <h1 class="text-base font-semibold">收藏</h1>
 
     <div v-if="favorites.items.length > 0" class="flex items-center gap-3">
+      <Select
+        :model-value="String(favEnvId)"
+        @update:model-value="(v) => (favEnvId = Number(v))"
+      >
+        <SelectTrigger data-test="fav-env-trigger" class="h-8 w-36 text-xs">
+          <SelectValue placeholder="全部环境" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">全部环境</SelectItem>
+          <SelectItem v-for="e in envOptions" :key="e.id" :value="String(e.id)">
+            {{ e.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
       <Input
         v-model="filter"
         data-test="fav-filter"
@@ -266,6 +411,12 @@ async function confirmDelete(): Promise<void> {
         匹配 {{ filteredItems.length }} / 共 {{ favorites.items.length }}
       </span>
     </div>
+
+    <TagFilterBar
+      v-if="favorites.items.length > 0 && availableTags.length > 0"
+      v-model="selectedTags"
+      :available="availableTags"
+    />
 
     <div v-if="favorites.items.length === 0" class="text-xs text-text-muted py-8 text-center">
       暂无收藏。在「新建部署」里选好项目后点「保存为收藏」。
@@ -314,10 +465,28 @@ async function confirmDelete(): Promise<void> {
             <GripVertical :size="16" />
           </button>
           <div class="flex-1 min-w-0">
-            <div class="text-sm truncate">{{ f.projectName }}</div>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-sm truncate">{{ f.projectName }}</span>
+              <span
+                v-for="name in f.tags ?? []"
+                :key="name"
+                data-test="fav-tag"
+                class="text-[10px] px-1.5 py-0.5 rounded-full border whitespace-nowrap shrink-0"
+                :style="{
+                  backgroundColor: tags.colorOf(name) + '22',
+                  color: tags.colorOf(name),
+                  borderColor: tags.colorOf(name) + '55',
+                }"
+              >
+                {{ name }}
+              </span>
+            </div>
             <div class="text-[11px] text-text-muted truncate">
               {{ f.envName }} · {{ f.deployType === "auto" ? "自动化" : "Docker" }}
               <template v-if="f.branch"> · {{ f.branch }}</template>
+            </div>
+            <div v-if="f.note" class="text-[11px] text-text-muted/80 truncate" :title="f.note">
+              {{ f.note }}
             </div>
           </div>
           <span
@@ -331,6 +500,14 @@ async function confirmDelete(): Promise<void> {
           >
             {{ f.type === "project" ? "仅项目" : "项目+分支" }}
           </span>
+          <Button
+            size="sm"
+            variant="outline"
+            data-test="edit-meta"
+            @click="metaTarget = f"
+          >
+            编辑
+          </Button>
           <Button size="sm" variant="outline" @click="toggle(f.id)">
             {{ expandedId === f.id ? "收起" : "快速部署" }}
           </Button>
@@ -391,6 +568,30 @@ async function confirmDelete(): Promise<void> {
 
           <p v-if="draft(f.id).error" class="text-[11px] text-danger">{{ draft(f.id).error }}</p>
 
+          <label class="flex items-start gap-2 text-xs">
+            <input
+              type="checkbox"
+              data-test="auto-online-single"
+              class="mt-0.5"
+              :checked="autoOnlineByFav[f.id] === true"
+              @change="
+                (e) =>
+                  (autoOnlineByFav[f.id] = (e.target as HTMLInputElement).checked)
+              "
+            />
+            <span>
+              构建成功后<strong>自动上线</strong>
+              <span class="text-text-muted">（默认关闭）</span>
+            </span>
+          </label>
+          <p
+            v-if="autoOnlineByFav[f.id]"
+            data-test="auto-online-warning"
+            class="text-[11px] text-danger leading-relaxed border border-danger/40 bg-danger/10 rounded-md px-3 py-2"
+          >
+            ⚠️ 已开启自动上线：构建成功后立刻上线，期间不会再问你。若服务端列表里识别不到这次任务，本次不会自动上线。
+          </p>
+
           <Button
             size="sm"
             :disabled="!draft(f.id).branch || !draft(f.id).commit || draft(f.id).submitting"
@@ -401,6 +602,17 @@ async function confirmDelete(): Promise<void> {
         </div>
       </div>
     </VueDraggable>
+
+    <MetaDialog
+      :open="metaTarget !== null"
+      mode="favorite"
+      :target-name="metaTarget?.projectName ?? ''"
+      :note="metaTarget?.note ?? ''"
+      :tags="metaTarget?.tags ?? []"
+      @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
+      @save="saveMeta"
+      @changed="favorites.load()"
+    />
 
     <ConfirmDialog
       :open="pendingDelete !== null"
