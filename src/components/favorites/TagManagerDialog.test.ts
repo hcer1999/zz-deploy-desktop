@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 
@@ -19,6 +19,14 @@ function qa(selector: string): HTMLElement[] {
   return Array.from(document.querySelectorAll<HTMLElement>(selector));
 }
 
+let current: ReturnType<typeof mount> | null = null;
+
+afterEach(async () => {
+  await flushPromises();
+  current?.unmount();
+  current = null;
+});
+
 async function mountDialog() {
   const pinia = createPinia();
   setActivePinia(pinia);
@@ -29,6 +37,7 @@ async function mountDialog() {
     attachTo: document.body,
   });
   await flushPromises();
+  current = w;
   return w;
 }
 

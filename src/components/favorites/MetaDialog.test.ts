@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 
@@ -7,7 +7,10 @@ vi.mock("@/api/tags", () => ({
     { name: "线上", color: "#f87171" },
     { name: "紧急", color: "#fbbf24" },
   ]),
-  upsertTag: vi.fn(),
+  // 新建标签会先登记：命令返回新的整张表
+  upsertTag: vi.fn(async (input: { name: string; color: string }) => [
+    { name: input.name, color: input.color },
+  ]),
   deleteTag: vi.fn(),
 }));
 
@@ -34,6 +37,18 @@ async function clickButton(text: string): Promise<void> {
   await flushPromises();
 }
 
+let current: ReturnType<typeof mount> | null = null;
+
+/**
+ * 必须卸载并等刷新完成再进下一个用例：弹窗内容在 portal 里，
+ * 下一个用例换掉 pinia 后，残留的渲染任务会读到已失效的 store。
+ */
+afterEach(async () => {
+  await flushPromises();
+  current?.unmount();
+  current = null;
+});
+
 async function mountDialog(
   props: Partial<{ note: string; tags: string[]; mode: "favorite" | "batch" }> = {},
 ) {
@@ -53,6 +68,7 @@ async function mountDialog(
     attachTo: document.body,
   });
   await flushPromises();
+  current = w;
   return w;
 }
 
