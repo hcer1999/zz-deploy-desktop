@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 
@@ -75,9 +75,19 @@ import SearchSelect from "@/components/common/SearchSelect.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { useFavoritesStore } from "@/stores/favorites";
 import { useBatchStore } from "@/stores/batch";
+import { Select } from "@/components/ui/select";
 
 let pinia: Pinia;
 let mounted: ReturnType<typeof mount>[] = [];
+
+/**
+ * 每个用例结束先卸载再清 body：下拉弹层走 portal，
+ * 残留实例会在下一个用例里继续往已清空的 body 里插节点（实测报 insertBefore null）。
+ */
+afterEach(() => {
+  mounted.forEach((w) => w.unmount());
+  mounted = [];
+});
 
 async function mountView(): Promise<ReturnType<typeof mount>> {
   pinia = createPinia();
@@ -404,5 +414,53 @@ describe("收藏的备注与彩色标签", () => {
     await flushPromises();
     expect(w.text()).toContain("proj-AAA");
     expect(w.text()).not.toContain("proj-BBB");
+  });
+});
+
+describe("收藏按环境筛选", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    document.body.innerHTML = "";
+  });
+
+  async function openEnv(w: ReturnType<typeof mount>): Promise<void> {
+    await w.find('[data-test="fav-env-trigger"]').trigger("pointerdown");
+    await flushPromises();
+  }
+
+  function options(): string[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).map(
+      (o) => o.textContent?.trim() ?? "",
+    );
+  }
+
+  it("下拉用组件（不是原生 select），选项来自收藏里出现过的环境", async () => {
+    const w = await mountView();
+    expect(w.find('[data-test="fav-env-trigger"]').exists()).toBe(true);
+    expect(w.find("select").exists()).toBe(false);
+
+    await openEnv(w);
+    expect(options()).toEqual(["全部环境", "测试环境", "正式环境"]);
+  });
+
+  it("选中环境后只显示该环境的收藏", async () => {
+    const w = await mountView();
+    w.findComponent(Select).vm.$emit("update:modelValue", "2");
+    await flushPromises();
+
+    expect(w.text()).toContain("proj-BBB");
+    expect(w.text()).not.toContain("proj-AAA");
+    expect(w.text()).toContain("匹配 1 / 共 2");
+  });
+
+  it("环境与标签筛选同时生效（取交集）", async () => {
+    const w = await mountView();
+    w.findComponent(Select).vm.$emit("update:modelValue", "1");
+    await flushPromises();
+
+    // 环境=测试环境 只有 proj-AAA（标签「线上」）；再选「紧急」应清空结果
+    await w.findAll('[data-test="tag-chip"]')[1].trigger("click");
+    await flushPromises();
+    expect(w.text()).toContain("没有匹配的收藏");
   });
 });

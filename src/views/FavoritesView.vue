@@ -13,6 +13,14 @@ import SearchSelect from "@/components/common/SearchSelect.vue";
 import MetaDialog from "@/components/favorites/MetaDialog.vue";
 import TagFilterBar from "@/components/favorites/TagFilterBar.vue";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ENVS } from "@/api/deploy";
 import { Input } from "@/components/ui/input";
 import { VueDraggable } from "vue-draggable-plus";
 import { GripVertical } from "@lucide/vue";
@@ -29,11 +37,34 @@ const pendingDelete = ref<string | null>(null);
 // ---------- 筛选 ----------
 
 const filter = ref("");
+/** 0 = 全部环境 */
+const favEnvId = ref(0);
 /** 选中的标签按 AND 收窄（再多一个标签 = 更小的结果集），与关键词取交集 */
 const selectedTags = ref<string[]>([]);
 const filterActive = computed(
-  () => filter.value.trim() !== "" || selectedTags.value.length > 0,
+  () => filter.value.trim() !== "" || selectedTags.value.length > 0 || favEnvId.value !== 0,
 );
+
+/**
+ * 环境下拉的选项：只列**收藏里真的出现过**的环境。
+ *
+ * 不直接用 ENVS 那 9 个：收藏可能来自更早的版本或手工改过的文件，
+ * 列一个没有收藏命中的环境只会得到空列表。顺序按 ENVS 的既定顺序，
+ * ENVS 里没有的环境按名字排在后面（保证顺序稳定，不随数据变动跳来跳去）。
+ */
+const envOptions = computed(() => {
+  const seen = new Map<number, string>();
+  for (const f of favorites.items) seen.set(f.envId, f.envName);
+  const order = new Map(ENVS.map((e, i) => [e.id, i]));
+  return [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => {
+      const ai = order.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bi = order.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      if (ai !== bi) return ai - bi;
+      return a.name.localeCompare(b.name, "zh-CN");
+    });
+});
 
 /** 当前收藏里出现过的标签（没被任何收藏引用的标签不必占一行位置） */
 const availableTags = computed(() => {
@@ -48,6 +79,8 @@ const availableTags = computed(() => {
 const filteredItems = computed(() => {
   const q = filter.value.trim().toLowerCase();
   return favorites.items.filter((f) => {
+    // 环境与标签都是收窄条件，彼此取交集
+    if (favEnvId.value !== 0 && f.envId !== favEnvId.value) return false;
     // 标签是 AND：每选一个都要求命中
     if (!selectedTags.value.every((t) => (f.tags ?? []).includes(t))) return false;
     if (!q) return true;
@@ -354,6 +387,20 @@ async function confirmDelete(): Promise<void> {
     <h1 class="text-base font-semibold">收藏</h1>
 
     <div v-if="favorites.items.length > 0" class="flex items-center gap-3">
+      <Select
+        :model-value="String(favEnvId)"
+        @update:model-value="(v) => (favEnvId = Number(v))"
+      >
+        <SelectTrigger data-test="fav-env-trigger" class="h-8 w-36 text-xs">
+          <SelectValue placeholder="全部环境" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">全部环境</SelectItem>
+          <SelectItem v-for="e in envOptions" :key="e.id" :value="String(e.id)">
+            {{ e.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
       <Input
         v-model="filter"
         data-test="fav-filter"
