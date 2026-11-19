@@ -9,6 +9,7 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     tasks: [],
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "",
+    envs: [],
   })),
   submitRebuild: vi.fn(async () => true),
   submitOnline: vi.fn(async () => true),

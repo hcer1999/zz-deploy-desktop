@@ -48,7 +48,10 @@ export const useTasksStore = defineStore("tasks", () => {
     loading.value = true;
     error.value = "";
     try {
-      const r = await fetchTaskList(deployType.value, page.value, search.value);
+      const r = await fetchTaskList(deployType.value, page.value, {
+        search: search.value,
+        envId: 0,
+      });
       tasks.value = r.tasks;
       pageInfo.value = r.pageInfo;
       // 空值不覆盖：个别页面若缺导航栏，别把已经学到的身份清掉

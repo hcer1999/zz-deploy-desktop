@@ -19,6 +19,7 @@ vi.mock("@/api/deploy", async (importOriginal) => ({
     tasks: [] as DeployTask[],
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "zhangsan",
+    envs: [],
   })),
   submitOnline: vi.fn(async () => true),
 }));
@@ -80,6 +81,7 @@ function mockTasks(tasks: DeployTask[]): void {
     tasks,
     pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
     currentUser: "zhangsan",
+    envs: [],
   });
 }
 
@@ -238,13 +240,20 @@ describe("batch store：认领与汇总", () => {
             ],
       pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
       currentUser: "zhangsan",
+      envs: [],
     }));
 
     await b.tick();
     expect(run.items[0].taskId).toBe(101);
     expect(run.items[1].taskId).toBe(501);
-    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("auto", 1, "");
-    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("docker", 1, "");
+    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("auto", 1, {
+      search: "",
+      envId: 0,
+    });
+    expect(vi.mocked(api.fetchTaskList)).toHaveBeenCalledWith("docker", 1, {
+      search: "",
+      envId: 0,
+    });
   });
 
   it("一个任务都没认领到时超时后直接作废（不发空洞的汇总）", async () => {

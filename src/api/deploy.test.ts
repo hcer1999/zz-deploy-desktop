@@ -212,18 +212,30 @@ describe("submitDeploy", () => {
 describe("fetchTaskList", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("带 page 与 search 参数，并按类型解析", async () => {
+  it("带 page、search 与 env 参数，并按类型解析", async () => {
     vi.mocked(http.httpGet).mockResolvedValue(res(200, null, "<html></html>"));
-    const out = await fetchTaskList("docker", 3, "zz-pay");
+    const out = await fetchTaskList("docker", 3, { search: "zz-pay", envId: 2 });
     expect(http.httpGet).toHaveBeenCalledWith("/dockerdeploy/docker/task/", {
       page: 3,
       search: "zz-pay",
+      env: 2,
     });
     expect(out).toEqual({
       tasks: [],
       pageInfo: { currentPage: 1, totalPages: 1, hasPrev: false, hasNext: false },
       // 没有导航栏的页面解析不到当前登录人，按身份未知处理
       currentUser: "",
+      // 同样解析不到环境下拉
+      envs: [],
+    });
+  });
+
+  it("envId 为 0 时不带 env 参数（全部环境）", async () => {
+    vi.mocked(http.httpGet).mockResolvedValue(res(200, null, "<html></html>"));
+    await fetchTaskList("auto", 1, { search: "", envId: 0 });
+    expect(http.httpGet).toHaveBeenCalledWith("/deployment/deploy/task/", {
+      page: 1,
+      search: "",
     });
   });
 });

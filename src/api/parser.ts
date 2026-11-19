@@ -30,9 +30,19 @@ export interface PageInfo {
   hasNext: boolean;
 }
 
+export interface EnvOption {
+  id: number;
+  name: string;
+}
+
 export interface TaskListResult {
   tasks: DeployTask[];
   pageInfo: PageInfo;
+  /**
+   * 任务列表页导航栏里的环境下拉（服务端权威的那份，比 api/deploy.ts 的 ENVS 全）。
+   * 解析不到时为 []，调用方保留上一次的目录。
+   */
+  envs: EnvOption[];
   /**
    * 当前登录人的显示名（页面左侧导航栏里的那个名字）。
    * 「提交人」列用的就是同一套名字，构建完成通知据此只弹自己提交的任务。
@@ -131,7 +141,12 @@ export function parseTaskList(html: string, type: 'auto' | 'docker' = 'auto'): T
   });
 
   const pageInfo = parsePageInfo($);
-  return { tasks, pageInfo, currentUser: parseCurrentUser($) };
+  return {
+    tasks,
+    pageInfo,
+    currentUser: parseCurrentUser($),
+    envs: parseEnvOptions($),
+  };
 }
 
 /**
@@ -142,6 +157,22 @@ export function parseTaskList(html: string, type: 'auto' | 'docker' = 'auto'): T
  */
 function parseCurrentUser($: ReturnType<typeof cheerio.load>): string {
   return $('div.profile-element strong.font-bold').first().text().trim();
+}
+
+/**
+ * 导航栏的 `<select name="env">`：第一项是 `value="0"` 的「按环境筛选」占位，
+ * 不是真实环境，必须跳过——否则下拉里会多出一个 id=0 的假环境。
+ */
+function parseEnvOptions($: ReturnType<typeof cheerio.load>): EnvOption[] {
+  const envs: EnvOption[] = [];
+  $('select[name="env"] option').each((_, el) => {
+    const raw = $(el).attr('value');
+    const id = raw ? parseInt(raw, 10) : NaN;
+    const name = $(el).text().trim();
+    if (!Number.isFinite(id) || id <= 0 || !name) return;
+    envs.push({ id, name });
+  });
+  return envs;
 }
 
 function parsePageInfo($: ReturnType<typeof cheerio.load>): PageInfo {

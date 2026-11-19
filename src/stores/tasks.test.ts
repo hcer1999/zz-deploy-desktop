@@ -34,6 +34,7 @@ const PAGE = {
   tasks: [task(1), task(2)],
   pageInfo: { currentPage: 1, totalPages: 5, hasPrev: false, hasNext: true },
   currentUser: "zhangsan",
+  envs: [],
 };
 
 describe("tasks store", () => {
@@ -58,7 +59,10 @@ describe("tasks store", () => {
     s.page = 3;
     s.search = "zz-pay";
     await s.refresh();
-    expect(deployApi.fetchTaskList).toHaveBeenCalledWith("docker", 3, "zz-pay");
+    expect(deployApi.fetchTaskList).toHaveBeenCalledWith("docker", 3, {
+      search: "zz-pay",
+      envId: 0,
+    });
   });
 
   it("回填当前登录人显示名；页面拿不到时不覆盖已学到的身份", async () => {

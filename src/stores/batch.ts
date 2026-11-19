@@ -192,7 +192,7 @@ export const useBatchStore = defineStore("batch", () => {
         const baseline = run.baselines[deployType] ?? 0;
         let tasks: DeployTask[];
         try {
-          tasks = (await fetchTaskList(deployType, 1, "")).tasks;
+          tasks = (await fetchTaskList(deployType, 1, { search: "", envId: 0 })).tasks;
         } catch {
           continue; // 离线/超时就等下一轮
         }

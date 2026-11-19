@@ -103,12 +103,18 @@ export async function submitDeploy(
   return isSuccessRedirect(r);
 }
 
+/**
+ * 任务列表。`envId === 0` 表示全部环境——此时**不带** env 参数，
+ * 与服务端页面的默认行为一致（`env=0` 虽然也能工作，但会写进 URL 里干扰排查）。
+ */
 export async function fetchTaskList(
   type: DeployType,
   page: number,
-  search: string,
+  opts: { search: string; envId: number },
 ): Promise<TaskListResult> {
-  const r = await httpGet(`/${deployPath(type)}/task/`, { page, search });
+  const query: Record<string, string | number> = { page, search: opts.search };
+  if (opts.envId > 0) query.env = opts.envId;
+  const r = await httpGet(`/${deployPath(type)}/task/`, query);
   return parseTaskList(r.body, type);
 }
 

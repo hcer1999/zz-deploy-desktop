@@ -310,7 +310,7 @@ async function doSubmit(): Promise<void> {
     const baselines: Partial<Record<DeployType, number>> = {};
     for (const type of new Set(targets.map((i) => i.deployType))) {
       try {
-        const page = await fetchTaskList(type, 1, "");
+        const page = await fetchTaskList(type, 1, { search: "", envId: 0 });
         baselines[type] = page.tasks.reduce((max, t) => Math.max(max, t.taskId), 0);
       } catch {
         baselines[type] = 0; // 拿不到也能跑，只是少了"比它新"这层保护
