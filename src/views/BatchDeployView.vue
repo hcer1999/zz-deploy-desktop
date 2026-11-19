@@ -188,6 +188,11 @@ const autoOnline = ref(false);
 const submitted = ref(false);
 
 const completeItems = computed(() => plan.value.filter((i) => !i.invalid && i.commit));
+/**
+ * 「最近批次」只列真正的批量提交：单次部署（kind=single）也走 batch store 结算，
+ * 但它们不属于这个页面，混进来会把面板刷成流水账。
+ */
+const recentBatches = computed(() => batches.runs.filter((r) => r.kind === "batch"));
 const envCount = computed(() => new Set(plan.value.map((i) => i.envName)).size);
 
 function itemKey(type: DeployType, env: number, projectId: number): string {
@@ -724,9 +729,9 @@ onMounted(async () => {
       </div>
 
       <!-- 最近批次进度 -->
-      <div v-if="batches.runs.length > 0" class="space-y-1 pt-2 border-t border-border">
+      <div v-if="recentBatches.length > 0" class="space-y-1 pt-2 border-t border-border">
         <div class="text-[11px] font-semibold">最近批次</div>
-        <div v-for="run in batches.runs.slice(-2)" :key="run.id" class="text-[11px] space-y-1">
+        <div v-for="run in recentBatches.slice(-2)" :key="run.id" class="text-[11px] space-y-1">
           <div class="text-text-muted">
             {{ run.items.length }} 项{{ run.autoOnline ? " · 自动上线已开" : "" }}{{
               run.notified ? " · 已汇总通知" : ""
