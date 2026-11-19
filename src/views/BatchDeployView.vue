@@ -873,6 +873,7 @@ onMounted(async () => {
       :tags="metaTarget?.tags ?? []"
       @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
       @save="saveMeta"
+      @changed="batchFavorites.load()"
     />
 
     <ConfirmDialog

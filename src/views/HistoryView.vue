@@ -273,6 +273,7 @@ async function doClear(): Promise<void> {
               class="h-[360px]"
               :lines="editorLines"
               :dropped="0"
+              :rev="0"
               pending=""
               :auto-scroll="false"
             />

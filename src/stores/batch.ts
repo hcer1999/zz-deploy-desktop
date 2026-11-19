@@ -173,19 +173,33 @@ export const useBatchStore = defineStore("batch", () => {
     const envCount = new Set(run.items.map((i) => i.envName)).size;
     const single = run.kind === "single";
     const scope = envCount > 1 ? `${run.items.length} 个任务（跨 ${envCount} 个环境）` : `${run.items.length} 个任务`;
+    // 没有收到任何结果时不能说"失败"（也可能只是没认领到任务）
+    const settledText = settled.length === 0 ? "未收到构建结果" : ok > 0 ? "成功" : "失败";
     const head = single
-      ? `部署完成：${run.items[0]?.projectName ?? ""} · ${run.items[0]?.envName ?? ""}（${
-          ok > 0 ? "成功" : "失败"
-        }）`
+      ? `部署完成：${run.items[0]?.projectName ?? ""} · ${run.items[0]?.envName ?? ""}（${settledText}）`
       : partial
         ? `批量部署：已收到 ${settled.length}/${run.items.length} 个结果（${ok} 成功 / ${failed.length} 失败）`
         : `批量部署：${scope}全部结束（${ok} 成功 / ${failed.length} 失败）`;
 
+    /**
+     * 单次部署的尾巴必须按**实际结果**说：
+     * - 构建失败 → 什么都没做，不要提上线；
+     * - 上线调用失败 → 明确说"上线失败，请手动处理"；
+     * - 没认领到任务 → 说明不会自动上线（不能让人以为已经上线了）。
+     * 这行文案是在告诉用户"生产到底动没动"，说错比不说更糟。
+     */
+    const singleItem = run.items[0];
+    const singleOnlineText =
+      singleItem?.online === "ok"
+        ? "已自动上线"
+        : singleItem?.online === "failed"
+          ? "上线失败，请手动处理"
+          : singleItem?.taskId === undefined
+            ? "未能识别到对应任务，本次不会自动上线"
+            : "";
+
     const tail = [
-      single ? "已自动上线" : run.autoOnline ? `已自动上线 ${onlined} 个` : "",
-      // 单次部署认领不到任务时，自动上线其实没发生——必须说出来，
-      // 否则用户会以为"已经上线了"。已自动上线 与 这句互斥。
-      single && run.autoOnline && onlined === 0 ? "未能识别到对应任务，本次不会自动上线" : "",
+      single ? singleOnlineText : run.autoOnline ? `已自动上线 ${onlined} 个` : "",
       failed.length
         ? `失败：${failed
             .slice(0, 3)
@@ -268,7 +282,10 @@ export const useBatchStore = defineStore("batch", () => {
     const out: BatchRun[] = [];
     for (const run of active()) {
       if (now - run.at < BATCH_TTL_MS) continue;
-      if (run.items.some((i) => i.taskId !== undefined)) out.push(run);
+      const claimed = run.items.some((i) => i.taskId !== undefined);
+      // 单次部署勾了自动上线：一个都没认领到也必须告一声——用户是主动要求"成功后上线"的，
+      // 不说就是让人以为生产已经更新了。批量照旧：没认领到就没抑制过单条通知，丢掉不丢信息。
+      if (claimed || (run.kind === "single" && run.autoOnline)) out.push(run);
       else run.notified = true;
     }
     return out;

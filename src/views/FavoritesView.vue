@@ -564,6 +564,7 @@ async function confirmDelete(): Promise<void> {
       :tags="metaTarget?.tags ?? []"
       @update:open="(v: boolean) => { if (!v) metaTarget = null; }"
       @save="saveMeta"
+      @changed="favorites.load()"
     />
 
     <ConfirmDialog

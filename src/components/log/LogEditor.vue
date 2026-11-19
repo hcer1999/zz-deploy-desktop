@@ -20,9 +20,14 @@ const props = withDefaults(
     dropped: number;
     pending: string;
     autoScroll: boolean;
+    /**
+     * 缓冲区变更计数（`LogBuffer.rev`）。日志是原地改数组的，引用不变，
+     * 没有这个信号就只能靠"数组长度 + 末行文本"猜，中间行的原地改写会漏。
+     */
+    rev?: number;
     class?: string;
   }>(),
-  { dropped: 0, pending: "", autoScroll: true },
+  { dropped: 0, pending: "", autoScroll: true, rev: 0 },
 );
 
 const host = ref<HTMLElement | null>(null);
@@ -134,8 +139,24 @@ onMounted(async () => {
   applyPlan();
 });
 
+/**
+ * 同步触发条件。
+ *
+ * **不能**监听 `props.lines` 本身：缓冲区是原地 push / splice / 改字段，
+ * 数组引用永远不变（这是 C1 那个 bug 的根因——监听引用等于只同步第一次）。
+ * 这里用 rev（store 侧的变更计数）为主，长度与末行内容兜底：
+ * 纯函数 `planModelSync` 是幂等的，多触发一次只是空跑一次比较。
+ */
 watch(
-  () => [props.lines, props.dropped, props.pending] as const,
+  () =>
+    [
+      props.rev,
+      props.lines.length,
+      props.lines[props.lines.length - 1]?.text,
+      props.lines[props.lines.length - 1]?.updates,
+      props.dropped,
+      props.pending,
+    ] as const,
   () => applyPlan(),
   { flush: "post" },
 );

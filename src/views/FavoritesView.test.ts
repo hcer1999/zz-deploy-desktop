@@ -365,6 +365,23 @@ describe("收藏的备注与彩色标签", () => {
     expect(useFavoritesStore().items[0].note).toBe("改成周五发");
   });
 
+  it("标签改名/删除后重新加载收藏（否则行里还显示旧标签，再编辑会把旧名写回去）", async () => {
+    const w = await mountView();
+    expect(favApi.listFavorites).toHaveBeenCalledTimes(1);
+
+    await w.findAll('[data-test="edit-meta"]')[0].trigger("click");
+    await flushPromises();
+    document.querySelector<HTMLElement>('[data-test="open-tag-manager"]')!.click();
+    await flushPromises();
+    document
+      .querySelector('[data-test="tag-row"]')!
+      .querySelector<HTMLElement>('[data-test="color-#34d399"]')!
+      .click();
+    await flushPromises();
+
+    expect(favApi.listFavorites).toHaveBeenCalledTimes(2);
+  });
+
   it("标签筛选按 AND 收窄", async () => {
     const w = await mountView();
     const chips = w.findAll('[data-test="tag-chip"]');

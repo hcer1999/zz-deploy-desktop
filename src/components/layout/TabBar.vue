@@ -63,6 +63,9 @@ function tabsRightOf(id: string): string[] {
 }
 
 function tabsExcept(id: string): string[] {
+  // 目标标签可能已经被别处关掉（菜单打开期间）：此时"除它以外"会变成"全部"，
+  // 正好和用户的本意相反——返回空，什么都不关。
+  if (!tabs.tabs.some((t) => t.id === id)) return [];
   return tabs.tabs.filter((t) => t.id !== id).map((t) => t.id);
 }
 

@@ -352,6 +352,47 @@ describe("单次部署的 single 批次", () => {
     b.reset();
   });
 
+  it("构建失败时不说已自动上线，也不说认领失败", async () => {
+    const b = useBatchStore();
+    startSingle(b);
+    mockTasks([task(101, { buildStatus: "构建失败" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { title: string; body: string };
+    expect(payload.body).toContain("失败");
+    expect(payload.body).not.toContain("已自动上线");
+    expect(payload.body).not.toContain("未能识别");
+    b.reset();
+  });
+
+  it("上线调用失败时明确告知（不能让人以为已上线）", async () => {
+    vi.mocked(api.submitOnline).mockResolvedValueOnce(false);
+    const b = useBatchStore();
+    startSingle(b);
+    mockTasks([task(101, { buildStatus: "构建成功" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { body: string };
+    expect(payload.body).toContain("上线失败");
+    b.reset();
+  });
+
+  it("认领不到任务时说明本次不会自动上线", async () => {
+    const b = useBatchStore();
+    const run = startSingle(b);
+    run.at = Date.now() - 31 * 60 * 1000; // 超过 TTL：走"已收到部分结果"的汇总
+    mockTasks([task(101, { buildStatus: "构建成功", projectName: "别的项目" })]);
+
+    await b.tick();
+
+    const payload = sendNotification.mock.calls[0][0] as { body: string };
+    expect(payload.body).toContain("未能识别到对应任务");
+    expect(payload.body).not.toContain("已自动上线");
+    b.reset();
+  });
+
   it("项目名对不上时不认领（同 commit 的别的项目不能被当成这次部署）", async () => {
     const b = useBatchStore();
     startSingle(b, "zz-pay");

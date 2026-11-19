@@ -30,6 +30,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   "update:open": [boolean];
   save: [{ note: string; tags: string[] }];
+  /** 标签被改名/删除：收藏里的引用已被服务端级联改掉，页面要重新读列表 */
+  changed: [];
 }>();
 
 const tags = useTagsStore();
@@ -45,7 +47,8 @@ watch(
   (open) => {
     if (!open) return;
     note.value = props.note;
-    selected.value = [...props.tags];
+    // 只保留标签表里还存在的：管理弹窗里删掉/改名的标签不能在这里被写回去
+    selected.value = props.tags.filter((t) => tags.items.some((x) => x.name === t));
     newTagName.value = "";
     managerOpen.value = false;
   },
@@ -188,5 +191,9 @@ function save(): void {
     </DialogContent>
   </Dialog>
 
-  <TagManagerDialog :open="managerOpen" @update:open="(v: boolean) => (managerOpen = v)" />
+  <TagManagerDialog
+    :open="managerOpen"
+    @update:open="(v: boolean) => (managerOpen = v)"
+    @changed="emit('changed')"
+  />
 </template>

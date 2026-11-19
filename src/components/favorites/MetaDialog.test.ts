@@ -123,6 +123,16 @@ describe("MetaDialog", () => {
     expect(w.emitted("save")?.[0]?.[0]).toEqual({ note: "", tags: ["灰度"] });
   });
 
+  it("标签管理里的改动会向外抛出 changed（收藏列表要重新加载）", async () => {
+    const w = await mountDialog();
+    await click('[data-test="open-tag-manager"]');
+    // 改一个标签的颜色 → TagManagerDialog 抛出 changed → MetaDialog 透传给页面
+    const row = document.querySelector('[data-test="tag-row"]')!;
+    row.querySelector<HTMLElement>('[data-test="color-#34d399"]')!.click();
+    await flushPromises();
+    expect(w.emitted("changed")?.length).toBeGreaterThan(0);
+  });
+
   it("「管理标签」打开标签管理弹窗", async () => {
     await mountDialog();
     await click('[data-test="open-tag-manager"]');

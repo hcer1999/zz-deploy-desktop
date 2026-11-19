@@ -21,7 +21,7 @@ import {
  * 用返回的新表替换本地状态，不在前端自己拼。
  */
 const props = defineProps<{ open: boolean }>();
-const emit = defineEmits<{ "update:open": [boolean] }>();
+const emit = defineEmits<{ "update:open": [boolean]; changed: [] }>();
 
 const tags = useTagsStore();
 const error = ref("");
@@ -39,6 +39,7 @@ async function recolor(t: TagDef, color: string): Promise<void> {
   error.value = "";
   try {
     await tags.upsert({ name: t.name, color });
+    emit("changed");
   } catch (e) {
     error.value = toUserMessage(e);
   }
@@ -51,6 +52,8 @@ async function rename(t: TagDef): Promise<void> {
   try {
     await tags.upsert({ oldName: t.name, name: next, color: t.color });
     delete drafts.value[t.name];
+    // 改名/改色都改了所有收藏里的引用（Rust 侧级联），页面必须重新读，否则行里还是旧标签
+    emit("changed");
   } catch (e) {
     error.value = toUserMessage(e);
   }
@@ -62,6 +65,7 @@ async function confirmDelete(): Promise<void> {
   error.value = "";
   try {
     await tags.remove(t.name);
+    emit("changed");
   } catch (e) {
     error.value = toUserMessage(e);
   } finally {

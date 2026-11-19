@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach, beforeAll, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
+import { reactive } from "vue";
 import type { LogLine } from "@/lib/ansi";
 
 /**
@@ -122,6 +123,7 @@ async function mountEditor(props: {
       dropped: props.dropped ?? 0,
       pending: props.pending ?? "",
       autoScroll: props.autoScroll ?? false,
+      rev: 0,
     },
     attachTo: document.body,
   });
@@ -169,6 +171,45 @@ describe("LogEditor", () => {
     w.unmount();
     mounted = null;
     expect(calls.dispose).toBe(1);
+  });
+
+  it("缓冲区原地追加（同一个数组引用）也要同步 —— 日志是 push 进去的，不是换数组", async () => {
+    const live = reactive<LogLine[]>([line(1, "a")]);
+    const w = await mountEditor({ lines: live });
+    expect(calls.setValue).toEqual(["a"]);
+
+    live.push(line(2, "b"));
+    await flushPromises();
+
+    expect(calls.applyEdits.length).toBeGreaterThan(0);
+    expect(fakeEditor.getModel().getValue()).toBe("a\nb");
+    w.unmount();
+    mounted = null;
+  });
+
+  it("进度行原地改写（同一下标改文本）也要同步", async () => {
+    const live = reactive<LogLine[]>([line(1, "a"), line(2, "pulling 10%")]);
+    const w = await mountEditor({ lines: live });
+
+    live[1].text = "pulling 90%";
+    live[1].updates = 2;
+    await flushPromises();
+
+    expect(fakeEditor.getModel().getValue()).toBe("a\npulling 90%");
+    w.unmount();
+    mounted = null;
+  });
+
+  it("清空缓冲区后模型也清空", async () => {
+    const live = reactive<LogLine[]>([line(1, "a"), line(2, "b")]);
+    const w = await mountEditor({ lines: live });
+
+    live.splice(0, live.length);
+    await flushPromises();
+
+    expect(fakeEditor.getModel().getValue()).toBe("");
+    w.unmount();
+    mounted = null;
   });
 
   it("进度行（updates > 1）加整行装饰，用于压暗", async () => {

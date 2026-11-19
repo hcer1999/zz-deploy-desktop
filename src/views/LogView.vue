@@ -27,6 +27,8 @@ const lines = computed(() => session.value?.buffer.lines ?? []);
  */
 const pendingText = computed(() => session.value?.buffer.pending ?? "");
 const dropped = computed(() => session.value?.buffer.dropped ?? 0);
+/** 缓冲区变更计数：日志原地改数组，编辑器靠它知道"真的变了" */
+const rev = computed(() => session.value?.buffer.rev ?? 0);
 
 /** 本标签当前是否可见（TabHost 用 v-show 隐藏非激活标签） */
 const isActive = computed(() => tabs.activeId === props.tabId);
@@ -106,6 +108,8 @@ function clear(): void {
   if (!s) return;
   s.buffer.lines.splice(0, s.buffer.lines.length);
   s.buffer.progressIndex.clear();
+  // 清空也是"内容变了"：不改 rev 的话编辑器收不到信号，旧内容会留在模型里
+  s.buffer.rev += 1;
 }
 
 function copyAll(): void {
@@ -159,6 +163,7 @@ function copyAll(): void {
       class="flex-1 min-h-0"
       :lines="lines"
       :dropped="dropped"
+      :rev="rev"
       :pending="pendingText"
       :auto-scroll="autoScroll"
     />

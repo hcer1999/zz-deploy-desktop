@@ -111,6 +111,24 @@ describe("TabBar 右键菜单", () => {
     expect(tabs.tabs.map((t) => t.id)).toEqual([a, b]);
   });
 
+  it("右键的标签在菜单打开期间被关掉：菜单随之关闭，剩下的标签一个都不受影响", async () => {
+    const tabs = useTabsStore();
+    const a = tabs.open({ kind: "wizard" });
+    tabs.open({ kind: "list" });
+    const w = mountBar();
+    await w.vm.$nextTick();
+    await openMenu(w, 0);
+    expect(menuItems().length).toBeGreaterThan(0);
+
+    // 菜单还开着，目标标签被别处关掉：reka-ui 会连同 trigger 一起卸载菜单内容
+    tabs.close(a);
+    await flushPromises();
+    await w.vm.$nextTick();
+
+    expect(menuItems()).toHaveLength(0);
+    expect(tabs.tabs).toHaveLength(1);
+  });
+
   it("右键切换菜单目标但不切换激活标签", async () => {
     const tabs = useTabsStore();
     tabs.open({ kind: "wizard" });
