@@ -47,9 +47,9 @@ async function ensureMonaco(): Promise<any> {
   if (monaco) return monaco;
   const mod = await import("monaco-editor/editor/editor.api");
   try {
-    // worker 只在真实运行时装：测试环境没有 Worker，也不需要 tokenize
-    const { installMonacoWorker } = await import("@/lib/monacoWorker");
-    installMonacoWorker();
+    // 查找面板 + worker 都在这里按需引入（测试环境里整个模块被 mock 掉）
+    const { installMonacoSupport } = await import("@/lib/monacoContribs");
+    installMonacoSupport();
   } catch {
     // 装不上也能读日志（只是少了编辑器内部服务）
   }
@@ -171,6 +171,29 @@ function layout(): void {
   editor?.layout();
 }
 
+/**
+ * 打开 Monaco 自带的查找面板（带命中计数、上一个/下一个、Esc 关闭）。
+ *
+ * 为什么不自研：查重要在 5000 行的模型上做高亮与跳转，Monaco 已经做了，
+ * 而且它能正确处理虚拟滚动之外的行。我们只负责把面板叫出来。
+ */
+function openFind(backwards = false): void {
+  if (!editor) return;
+  editor.getAction(backwards ? "actions.findWithSelection" : "actions.find")?.run();
+}
+
+/** 用关键词搜索：打开面板并写入关键词（面板内部继续可用上/下一个） */
+function search(term: string): void {
+  const q = term.trim();
+  if (!editor) return;
+  openFind();
+  if (!q) return;
+  editor
+    .getContribution("editor.contrib.findController")
+    ?.getState()
+    .change({ searchString: q }, false);
+}
+
 function getText(): string {
   return editor?.getModel()?.getValue() ?? "";
 }
@@ -182,7 +205,7 @@ onBeforeUnmount(() => {
   editor = null;
 });
 
-defineExpose({ scrollToBottom, layout, getText });
+defineExpose({ scrollToBottom, layout, getText, openFind, search });
 </script>
 
 <template>

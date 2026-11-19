@@ -11,6 +11,13 @@ import StatusBadge from "@/components/common/StatusBadge.vue";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const tasks = useTasksStore();
 const tabs = useTabsStore();
@@ -176,19 +183,23 @@ async function runAction(): Promise<void> {
         </Button>
       </div>
       <!--
-        环境下拉用原生 select：环境最多二十来个、不需要搜索，
-        原生控件在三端 webview 上的键盘可达性也比自绘下拉稳。
+        环境下拉走统一的 Select 组件（与部署页、设置页同一套观感与键盘行为）。
         参数名与服务端页面一致（env），0 = 全部环境。
       -->
-      <select
-        data-test="env-filter"
-        :value="String(tasks.envId)"
-        class="h-8 rounded-md border border-border bg-surface px-2 text-xs text-text"
-        @change="(e) => tasks.setEnv(Number((e.target as HTMLSelectElement).value))"
+      <Select
+        :model-value="String(tasks.envId)"
+        @update:model-value="(v) => tasks.setEnv(Number(v))"
       >
-        <option value="0">全部环境</option>
-        <option v-for="e in tasks.envs" :key="e.id" :value="String(e.id)">{{ e.name }}</option>
-      </select>
+        <SelectTrigger data-test="env-trigger" class="h-8 w-36 text-xs">
+          <SelectValue placeholder="全部环境" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="0">全部环境</SelectItem>
+          <SelectItem v-for="e in tasks.envs" :key="e.id" :value="String(e.id)">
+            {{ e.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
       <Input
         v-model="searchDraft"
         placeholder="搜索标题 / 项目 / 提交人…"

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 import type { DeployTask } from "@/api/parser";
@@ -24,9 +24,17 @@ vi.mock("@/api/log", () => ({
 
 import * as api from "@/api/deploy";
 import TaskListView from "./TaskListView.vue";
+import { Select } from "@/components/ui/select";
 import { useTasksStore } from "@/stores/tasks";
 
 let pinia: Pinia;
+let mounted: ReturnType<typeof mount> | null = null;
+
+// 下拉弹层走 portal：用例之间不清掉挂载实例，残留的 portal 会在下一个用例里报错
+afterEach(() => {
+  mounted?.unmount();
+  mounted = null;
+});
 
 function task(id: number, buildStatus: string, over: Partial<DeployTask> = {}): DeployTask {
   return {
@@ -53,6 +61,7 @@ async function mountList(rows: DeployTask[]): Promise<ReturnType<typeof mount>> 
   pinia = createPinia();
   setActivePinia(pinia);
   const w = mount(TaskListView, { global: { plugins: [pinia] }, attachTo: document.body });
+  mounted = w;
   await flushPromises();
   // 挂载时 refresh() 会被 mock 覆盖成空列表，这里再放测试数据
   useTasksStore().tasks = rows;
@@ -132,16 +141,37 @@ describe("TaskListView 环境筛选", () => {
     return w;
   }
 
-  it("下拉列出「全部环境」+ 服务端返回的环境目录", async () => {
+  /** 打开环境下拉（reka-ui 的 Select 用 pointerdown 触发） */
+  async function openEnvSelect(w: ReturnType<typeof mount>): Promise<void> {
+    await w.find('[data-test="env-trigger"]').trigger("pointerdown");
+    await flushPromises();
+  }
+
+  function envOptions(): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'));
+  }
+
+  it("下拉列出「全部环境」+ 服务端返回的环境目录（用统一的 Select 组件，不是原生 select）", async () => {
     const w = await mountWithEnvs();
-    const options = w.findAll('[data-test="env-filter"] option').map((o) => o.text());
-    expect(options).toEqual(["全部环境", "测试环境", "正式环境"]);
+    expect(w.find('[data-test="env-trigger"]').exists()).toBe(true);
+    expect(w.find("select").exists()).toBe(false);
+
+    await openEnvSelect(w);
+    expect(envOptions().map((o) => o.textContent?.trim())).toEqual([
+      "全部环境",
+      "测试环境",
+      "正式环境",
+    ]);
   });
 
   it("选择环境后回到第 1 页并带上 envId", async () => {
     const w = await mountWithEnvs();
-    await w.find('[data-test="env-filter"]').setValue("2");
+    // reka-ui 的 Select 在 pointerup 时由内容层换算选中项，jsdom 里模拟点击链路不可靠；
+    // 这里只验证"选中值 → setEnv"的接线，下拉交互本身由组件库保证。
+    const select = w.findComponent(Select);
+    select.vm.$emit("update:modelValue", "2");
     await flushPromises();
+
     expect(useTasksStore().envId).toBe(2);
     expect(api.fetchTaskList).toHaveBeenLastCalledWith("auto", 1, {
       search: "",

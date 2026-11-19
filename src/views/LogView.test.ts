@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia, type Pinia } from "pinia";
 
@@ -12,7 +12,7 @@ vi.mock("@/api/log", () => ({
  * 记录 LogView 调用了几次 scrollToBottom / layout，并把收到的行暴露到 DOM 上断言。
  * 同步算法本身由 lib/logModel 与 LogEditor 的单测覆盖。
  */
-const calls = vi.hoisted(() => ({ scroll: 0, layout: 0 }));
+const calls = vi.hoisted(() => ({ scroll: 0, layout: 0, find: 0, search: [] as string[] }));
 
 vi.mock("@/components/log/LogEditor.vue", async () => {
   const { defineComponent, h } = await import("vue");
@@ -33,6 +33,12 @@ vi.mock("@/components/log/LogEditor.vue", async () => {
             calls.layout += 1;
           },
           getText: () => "",
+          openFind: () => {
+            calls.find += 1;
+          },
+          search: (term: string) => {
+            calls.search.push(term);
+          },
         });
         return () =>
           h("div", {
@@ -54,6 +60,13 @@ import { clearTab, setOpenLog } from "@/stores/tabPayload";
 import LogView from "./LogView.vue";
 
 let pinia: Pinia;
+/** 用例之间必须卸载：残留实例也监听 window 的 keydown，会让快捷键断言数翻倍 */
+let mounted: ReturnType<typeof mount> | null = null;
+
+afterEach(() => {
+  mounted?.unmount();
+  mounted = null;
+});
 
 const TAB = "log-1";
 
@@ -69,6 +82,7 @@ async function mountLog(): Promise<ReturnType<typeof mount>> {
     envName: "测试环境",
   });
   const w = mount(LogView, { props: { tabId: TAB }, global: { plugins: [pinia] } });
+  mounted = w;
   await flushPromises();
   return w;
 }
@@ -87,6 +101,8 @@ describe("LogView 自动滚动", () => {
     vi.clearAllMocks();
     calls.scroll = 0;
     calls.layout = 0;
+    calls.find = 0;
+    calls.search = [];
     clearTab(TAB);
   });
 
@@ -129,6 +145,30 @@ describe("LogView 自动滚动", () => {
     await flushPromises();
     expect(calls.layout).toBe(1);
     expect(calls.scroll).toBe(1);
+    w.unmount();
+  });
+});
+
+describe("LogView 查找", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    calls.find = 0;
+    calls.search = [];
+    clearTab(TAB);
+  });
+
+  it("工具条的「查找」按钮打开 Monaco 查找面板", async () => {
+    const w = await mountLog();
+    await w.find('[data-test="log-find"]').trigger("click");
+    expect(calls.find).toBe(1);
+  });
+
+  it("⌘F / Ctrl+F 打开查找面板（不依赖浏览器原生查找）", async () => {
+    const w = await mountLog();
+    const ev = new KeyboardEvent("keydown", { key: "f", metaKey: true, bubbles: true });
+    window.dispatchEvent(ev);
+    await flushPromises();
+    expect(calls.find).toBe(1);
     w.unmount();
   });
 });

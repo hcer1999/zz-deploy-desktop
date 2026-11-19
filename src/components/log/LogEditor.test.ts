@@ -48,7 +48,15 @@ class FakeRange {
   ) {}
 }
 
+const findState = { change: vi.fn() };
+const findController = { getState: () => findState, moveToNextMatch: vi.fn() };
+const actionRun = vi.fn();
+
 const fakeEditor = {
+  getAction: (id: string) =>
+    id === "actions.find" || id === "actions.findWithSelection" ? { run: actionRun } : null,
+  getContribution: (id: string) =>
+    id === "editor.contrib.findController" ? findController : null,
   getModel: () => model,
   layout: () => {
     calls.layout += 1;
@@ -79,7 +87,7 @@ vi.mock("monaco-editor/editor/editor.api", () => ({
   Range: FakeRange,
 }));
 
-vi.mock("@/lib/monacoWorker", () => ({ installMonacoWorker: vi.fn() }));
+vi.mock("@/lib/monacoContribs", () => ({ installMonacoSupport: vi.fn() }));
 
 import LogEditor from "./LogEditor.vue";
 
@@ -208,6 +216,22 @@ describe("LogEditor", () => {
     await flushPromises();
 
     expect(fakeEditor.getModel().getValue()).toBe("");
+    w.unmount();
+    mounted = null;
+  });
+
+  it("打开查找面板（⌘F 的落点）与按关键词搜索", async () => {
+    const w = await mountEditor({ lines: [line(1, "构建失败"), line(2, "构建成功")] });
+    const vm = w.vm as unknown as {
+      openFind: () => void;
+      search: (term: string) => void;
+    };
+
+    vm.openFind();
+    expect(actionRun).toHaveBeenCalledTimes(1);
+
+    vm.search("构建失败");
+    expect(findState.change).toHaveBeenCalledWith({ searchString: "构建失败" }, false);
     w.unmount();
     mounted = null;
   });

@@ -33,10 +33,25 @@ const rev = computed(() => session.value?.buffer.rev ?? 0);
 /** 本标签当前是否可见（TabHost 用 v-show 隐藏非激活标签） */
 const isActive = computed(() => tabs.activeId === props.tabId);
 
+/**
+ * ⌘F / Ctrl+F：打开 Monaco 的查找面板。
+ *
+ * WebView 里原生的"页内查找"对虚拟滚动的编辑器没用（看不见的行不在 DOM 里），
+ * 所以这里接管按键；只在标签可见时接管，不影响其它快捷键。
+ */
+function onKeydown(e: KeyboardEvent): void {
+  if (!isActive.value) return;
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+    e.preventDefault();
+    editorRef.value?.openFind();
+  }
+}
+
 /** 标签在 log_open 返回前就被关掉时置位，拿到 sessionId 后立即释放连接 */
 let disposed = false;
 
 onMounted(async () => {
+  window.addEventListener("keydown", onKeydown);
   const payload = openLog(props.tabId);
   if (!payload) {
     error.value = "日志标签缺少任务信息";
@@ -58,6 +73,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   disposed = true;
+  window.removeEventListener("keydown", onKeydown);
 });
 
 /**
@@ -146,6 +162,17 @@ function copyAll(): void {
       >
         服务端：{{ session?.detail }}
       </span>
+      <!-- 查找面板用 Monaco 自带的：带命中计数与上/下一个，不用我们再算 -->
+      <Button
+        variant="outline"
+        size="sm"
+        class="h-6 px-2 text-[11px]"
+        data-test="log-find"
+        title="查找（⌘F / Ctrl+F）"
+        @click="editorRef?.openFind()"
+      >
+        查找
+      </Button>
       <label class="flex items-center gap-1.5 text-[11px] text-white/60">
         <input v-model="autoScroll" type="checkbox" />
         自动滚动
