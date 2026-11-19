@@ -1,5 +1,5 @@
 import { acceptHMRUpdate, defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { fetchTaskList } from "@/api/deploy";
 import type { DeployType } from "@/api/deploy";
 import type { DeployTask, PageInfo } from "@/api/parser";
@@ -9,6 +9,17 @@ export const useTasksStore = defineStore("tasks", () => {
   const deployType = ref<DeployType>("auto");
   const page = ref(1);
   const search = ref("");
+  /** 0 = 全部环境。筛选条件不持久化：每次启动都从"全部"开始 */
+  const envId = ref(0);
+  /**
+   * 环境目录按部署类型分开存：服务端的自动化与 Docker 是两条路由，
+   * 各自维护一份环境列表（条数与名字都不一样），混用会拿到不属于该路由的 env id。
+   */
+  const envsByType = ref<Record<DeployType, { id: number; name: string }[]>>({
+    auto: [],
+    docker: [],
+  });
+  const envs = computed(() => envsByType.value[deployType.value]);
   const tasks = ref<DeployTask[]>([]);
   const pageInfo = ref<PageInfo>({
     currentPage: 1,
@@ -50,10 +61,12 @@ export const useTasksStore = defineStore("tasks", () => {
     try {
       const r = await fetchTaskList(deployType.value, page.value, {
         search: search.value,
-        envId: 0,
+        envId: envId.value,
       });
       tasks.value = r.tasks;
       pageInfo.value = r.pageInfo;
+      // 空目录不覆盖：某次页面缺导航栏时别把已经学到的下拉清空
+      if (r.envs.length) envsByType.value[deployType.value] = r.envs;
       // 空值不覆盖：个别页面若缺导航栏，别把已经学到的身份清掉
       if (r.currentUser) currentUser.value = r.currentUser;
       consecutiveFailures = 0;
@@ -92,6 +105,26 @@ export const useTasksStore = defineStore("tasks", () => {
     if (deployType.value === t) return;
     deployType.value = t;
     page.value = 1;
+    // 两套路由的环境目录不通用：留着旧 env id 会把不属于该路由的筛选条件发过去
+    envId.value = 0;
+    await refresh();
+  }
+
+  async function setEnv(id: number): Promise<void> {
+    if (envId.value === id) {
+      page.value = 1;
+      await refresh();
+      return;
+    }
+    envId.value = id;
+    page.value = 1;
+    await refresh();
+  }
+
+  async function clearFilters(): Promise<void> {
+    search.value = "";
+    envId.value = 0;
+    page.value = 1;
     await refresh();
   }
 
@@ -126,6 +159,9 @@ export const useTasksStore = defineStore("tasks", () => {
     deployType,
     page,
     search,
+    envId,
+    envsByType,
+    envs,
     tasks,
     pageInfo,
     loading,
@@ -138,6 +174,8 @@ export const useTasksStore = defineStore("tasks", () => {
     startPolling,
     stopPolling,
     setDeployType,
+    setEnv,
+    clearFilters,
     applySearch,
     goPage,
     removeLocal,
